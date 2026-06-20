@@ -1,23 +1,65 @@
 # Tremor-Synchronized Stimulation Project
 
+
+
+> **WARNING — USE ENTIRELY AT YOUR OWN RISK**
+> This device applies electrical stimulation to the human body at up to **40 V DC**
+> through skin-contact electrodes. Voltages at this level can cause electric shock,
+> skin burns, cardiac arrhythmia, or other serious injury, particularly in people
+> with cardiac conditions, implanted electronic devices (pacemakers, neurostimulators),
+> or broken/damaged skin. There is no medical certification or regulatory approval of
+> any kind. You, and you alone, are fully responsible for any harm to yourself or
+> others that results from building, modifying, or using this device.
+> **Do not use on another person without their explicit, informed consent.**
+
 This project implements a wearable device that detects hand/arm tremor in
 real time and delivers phase-locked electrical stimulation in sync with the
 tremor cycle, plus a companion web app for recording, reviewing, and
 exporting telemetry from the device over Bluetooth Low Energy (BLE).
 
-It consists of three parts:
+**KUDOS to the following projects that were the main inspiration:**
 
-1. **Tremor detection firmware** (`tremor_detection.py`) — runs on the device,
-   detects tremor frequency/axis from an IMU, and drives an H-bridge to
+- **[DIY Transcutaneous Spinal Stimulator Guide](https://www.scribd.com/document/766706842/An-easy-to-build-transcutaneous-electrical-stimulator-for-spinal-cord-stimulation-therapy)**
+- **[OpenVstim](https://github.com/MonzurulAlam/OpenVstim)**
+
+See docs\References.md for more sources.
+
+
+**It consists of four parts:**
+
+1. **Hardware** — a wearable unit built around the Adafruit QT Py ESP32-S3,
+   comprising two subsystems:
+   - *Sensing:* an Adafruit BNO055 IMU measures gyroscope and quaternion data
+     to detect tremor axis, frequency, and phase in real time.
+   - *Stimulation:* a boost converter raises the supply to up to 40 V DC,
+     which an H-bridge switches across skin-contact electrodes to deliver
+     charge-balanced biphasic pulses synchronized to the tremor cycle.
+2. **Tremor detection firmware** (`tremor_detection.py`) — runs on the device,
+   detects tremor frequency/axis from the IMU, and drives the H-bridge to
    deliver biphasic stimulation pulses synchronized to the tremor.
-2. **BLE telemetry** (`ble_telemetry.py`) — a custom BLE GATT service that
+3. **BLE telemetry** (`ble_telemetry.py`) — a custom BLE GATT service that
    advertises as `TREMOR` and streams live detector state to nearby devices.
-3. **Tremor Recorder web app** (`tremor_recorder.html`) — a single-file,
+4. **Tremor Recorder web app** (`tremor_recorder.html`) — a single-file,
    offline-capable HTML/JS app (Web Bluetooth + IndexedDB) for pairing with
    the device, recording sessions, charting live/aggregated data, and
    exporting/sharing results.
 
 This is experimental code intended for use on isolated test hardware only.
+
+```
+TremorBump/
+├── CircuitPython/          # Firmware — copy contents to the CIRCUITPY drive
+│   ├── code.py
+│   ├── tremor_detection.py
+│   ├── ble_telemetry.py
+│   ├── settings.toml
+│   └── lib/                # Required CircuitPython libraries
+├── CompanionApp/
+│   └── tremor_recorder.html
+└── docs/
+    ├── References.md
+    └── conductive_electrode_gel_recipe.md
+```
 
 ## Hardware required
 
@@ -33,6 +75,9 @@ This is experimental code intended for use on isolated test hardware only.
 - **H-bridge** driver for the stimulation electrodes, connected to
   `board.MOSI` (h_bridge_1) and `board.MISO` (h_bridge_2), switching the
   boosted 40 V supply to produce the stimulation waveform described below.
+- **Stimulation electrodes** with conductive gel for skin contact. A DIY
+  saline/glycerin/xanthan gel recipe is provided in
+  [`docs/conductive_electrode_gel_recipe.md`](docs/conductive_electrode_gel_recipe.md).
 - Onboard **NeoPixel** LED, used to indicate detector state (unlocked /
   locking / locked / holdover) and stimulation polarity.
 - A BLE-capable computer or phone with a Chromium-based browser (Chrome /
