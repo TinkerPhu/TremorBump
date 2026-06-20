@@ -2,15 +2,8 @@
 
 
 
-> **WARNING — USE ENTIRELY AT YOUR OWN RISK**
-> This device applies electrical stimulation to the human body at up to **40 V DC**
-> through skin-contact electrodes. Voltages at this level can cause electric shock,
-> skin burns, cardiac arrhythmia, or other serious injury, particularly in people
-> with cardiac conditions, implanted electronic devices (pacemakers, neurostimulators),
-> or broken/damaged skin. There is no medical certification or regulatory approval of
-> any kind. You, and you alone, are fully responsible for any harm to yourself or
-> others that results from building, modifying, or using this device.
-> **Do not use on another person without their explicit, informed consent.**
+> ⚠ **This device applies up to 40 V electrical stimulation to the human body.
+> Read [SAFETY.md](SAFETY.md) before building or using it.**
 
 This project implements a wearable device that detects hand/arm tremor in
 real time and delivers phase-locked electrical stimulation in sync with the
