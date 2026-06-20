@@ -1,0 +1,1928 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tremor Recorder</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --card: #ffffff;
+      --text: #111827;
+      --muted: #6b7280;
+      --border: #d1d5db;
+      --primary: #1f2937;
+      --danger: #991b1b;
+      --ok: #166534;
+      --warn: #92400e;
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 18px;
+    }
+
+    .app {
+      width: min(720px, 100%);
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 24px;
+      margin: 16px 0;
+    }
+
+    h1, h2 {
+      margin: 0 0 16px;
+      line-height: 1.1;
+    }
+
+    h1 {
+      font-size: 2.2rem;
+    }
+
+    h2 {
+      font-size: 1.6rem;
+    }
+
+    p {
+      line-height: 1.5;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .button-row {
+      display: grid;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    button {
+      width: 100%;
+      min-height: 64px;
+      padding: 16px 18px;
+      border: 0;
+      border-radius: 18px;
+      background: var(--primary);
+      color: white;
+      font: inherit;
+      font-size: 1.15rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: #e5e7eb;
+      color: var(--text);
+    }
+
+    button.danger {
+      background: var(--danger);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-hero {
+      min-height: 192px;
+      font-size: 1.6rem;
+    }
+
+    .btn-large {
+      min-height: 128px;
+      font-size: 1.3rem;
+    }
+
+    .status-line {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 12px 0;
+      color: var(--muted);
+    }
+
+    .dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #9ca3af;
+      flex: 0 0 auto;
+    }
+
+    .dot.connected {
+      background: var(--ok);
+    }
+
+    .dot.recording {
+      background: var(--danger);
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .metric {
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px;
+      background: #fafafa;
+    }
+
+    .metric-label {
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin-bottom: 6px;
+    }
+
+    .metric-value {
+      font-size: 2rem;
+      font-weight: 800;
+      line-height: 1.1;
+    }
+
+    .metric-value.small {
+      font-size: 1.5rem;
+    }
+
+    .card.primary-screen {
+      display: flex;
+      flex-direction: column;
+      min-height: calc(90vh - 32px);
+    }
+
+    .metrics-hero {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .metric-hero {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .metric-hero .metric-value {
+      font-size: 4rem;
+    }
+
+    .state-pill {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 8px 14px;
+      background: #e5e7eb;
+      font-weight: 800;
+    }
+
+    .state-UNLOCKED { background: #dbeafe; }
+    .state-LOCKING  { background: #fef3c7; }
+    .state-LOCKED   { background: #dcfce7; }
+    .state-HOLDOVER { background: #f5d0fe; }
+
+    .error {
+      border: 1px solid #fecaca;
+      background: #fef2f2;
+      color: #7f1d1d;
+      border-radius: 16px;
+      padding: 14px;
+      margin-top: 16px;
+      white-space: pre-wrap;
+    }
+
+    .summary-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 14px;
+    }
+
+    .summary-table td {
+      border-bottom: 1px solid var(--border);
+      padding: 12px 4px;
+    }
+
+    .summary-table td:last-child {
+      text-align: right;
+      font-weight: 700;
+    }
+
+    .sample-preview {
+      overflow-x: auto;
+      max-height: 220px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      margin-top: 16px;
+    }
+
+    .sample-preview table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    .sample-preview th,
+    .sample-preview td {
+      padding: 8px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    .chart-container {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      margin-top: 16px;
+      padding: 8px;
+    }
+
+    .chart-svg {
+      width: 100%;
+      height: 160px;
+      display: block;
+    }
+
+    .chart-band {
+      opacity: 0.18;
+    }
+
+    .chart-line {
+      stroke-width: 2;
+    }
+
+    .chart-axis-label {
+      font-size: 10px;
+      fill: var(--muted);
+    }
+
+    .chart-legend {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .session-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .session-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px 14px;
+    }
+
+    .session-row input[type="checkbox"] {
+      width: 22px;
+      height: 22px;
+      flex: 0 0 auto;
+    }
+
+    .session-row .session-info {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .session-row .session-title {
+      font-weight: 700;
+    }
+
+    .session-row .session-meta {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .session-row button {
+      width: auto;
+      min-height: 44px;
+      padding: 10px 16px;
+      flex: 0 0 auto;
+    }
+
+    .form-row {
+      margin: 16px 0;
+    }
+
+    .form-row label {
+      display: block;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .form-row select,
+    .form-row input[type="number"] {
+      width: 100%;
+      font: inherit;
+      font-size: 1.05rem;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: #fff;
+      color: var(--text);
+    }
+
+    .form-row .hint {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-top: 6px;
+    }
+
+    @media (min-width: 640px) {
+      .metrics {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section id="screen-start" class="screen">
+      <div class="card primary-screen">
+        <h1>Tremor Recorder</h1>
+        <p class="muted">Connect to the TremorStim device and record live telemetry on this computer.</p>
+        <div class="status-line">
+          <span id="start-dot" class="dot"></span>
+          <span id="start-status">Not connected</span>
+        </div>
+        <div class="button-row">
+          <button id="btn-start" class="btn-hero">Start recording</button>
+          <button id="btn-go-sessions" class="secondary btn-large">Sessions</button>
+        </div>
+        <div id="start-error" class="error hidden"></div>
+      </div>
+      <div class="card">
+        <div class="button-row">
+          <button id="btn-go-export" class="secondary">Export</button>
+          <button id="btn-go-admin" class="secondary">Admin</button>
+          <button id="btn-go-config" class="secondary">Settings</button>
+          <button id="btn-simulate" class="secondary hidden">Run simulated session</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-recording" class="screen hidden">
+      <div class="card primary-screen">
+        <h1>Recording</h1>
+
+        <div class="metrics-hero">
+          <div class="metric metric-hero">
+            <div class="metric-label">Magnitude</div>
+            <div class="metric-value"><span id="live-mag">--</span></div>
+          </div>
+          <div class="metric metric-hero">
+            <div class="metric-label">Tremor frequency</div>
+            <div class="metric-value"><span id="live-hz">--</span> Hz</div>
+          </div>
+        </div>
+
+        <div class="button-row">
+          <button id="btn-stop" class="danger">Stop & save</button>
+        </div>
+        <div class="status-line">
+          <span class="dot recording"></span>
+          <span id="recording-status">Connected and recording</span>
+        </div>
+        <div id="recording-error" class="error hidden"></div>
+      </div>
+      <div class="card">
+        <div class="metrics">
+          <div class="metric">
+            <div class="metric-label">Stimulation count</div>
+            <div class="metric-value"><span id="live-stim">0</span></div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Sched frequency</div>
+            <div class="metric-value"><span id="live-stim-hz">--</span> Hz</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">State</div>
+            <div class="metric-value small"><span id="live-state" class="state-pill">--</span></div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Samples recorded</div>
+            <div class="metric-value"><span id="live-samples">0</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-saved" class="screen hidden">
+      <div class="card">
+        <h1>Session saved</h1>
+        <div class="button-row">
+          <button id="btn-new" class="btn-hero">Start new recording</button>
+        </div>
+        <p id="saved-summary" class="muted"></p>
+        <div class="button-row">
+          <button id="btn-review-saved">Review session</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-review" class="screen hidden">
+      <div class="card">
+        <h1>Review</h1>
+        <div id="review-empty" class="muted hidden">No saved session found.</div>
+        <div id="review-content" class="hidden">
+          <h2 id="review-title">Session</h2>
+          <table class="summary-table">
+            <tbody id="review-summary-body"></tbody>
+          </table>
+          <div class="button-row">
+            <button id="btn-export-csv">Export raw CSV</button>
+            <button id="btn-back-start" class="secondary">Back</button>
+          </div>
+          <h2>Interval aggregates</h2>
+          <div id="aggregates-preview" class="sample-preview"></div>
+          <h2>Tremor frequency (Hz)</h2>
+          <div id="chart-tremor" class="chart-container"></div>
+          <h2>Magnitude</h2>
+          <div id="chart-magnitude" class="chart-container"></div>
+          <div id="review-error" class="error hidden"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-sessions" class="screen hidden">
+      <div class="card">
+        <h1>Sessions</h1>
+        <div id="sessions-empty" class="muted hidden">No recorded sessions yet.</div>
+        <div id="sessions-list" class="session-list"></div>
+        <div class="button-row">
+          <button id="btn-sessions-back" class="secondary">Back</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-config" class="screen hidden">
+      <div class="card">
+        <h1>Settings</h1>
+        <div class="form-row">
+          <label for="cfg-interval">Aggregate interval</label>
+          <select id="cfg-interval">
+            <option value="10">10 seconds</option>
+            <option value="30">30 seconds</option>
+            <option value="60">1 minute</option>
+            <option value="120">2 minutes</option>
+            <option value="300">5 minutes</option>
+            <option value="900">15 minutes</option>
+            <option value="1800">30 minutes</option>
+            <option value="3600">60 minutes</option>
+          </select>
+          <div class="hint">How often range &amp; average frequency/intensity are summarized during a recording.</div>
+        </div>
+        <div class="form-row">
+          <label for="cfg-window">Active-stimulation detection window (seconds)</label>
+          <input id="cfg-window" type="number" min="3" max="60" step="1" />
+          <div class="hint">Stimulation counts as "active" if the pulse counter increased within this many seconds.</div>
+        </div>
+        <div class="button-row">
+          <button id="btn-config-save">Save settings</button>
+          <button id="btn-config-back" class="secondary">Back</button>
+        </div>
+        <div id="config-saved-msg" class="muted hidden">Settings saved. They apply to new recordings.</div>
+      </div>
+    </section>
+
+    <section id="screen-export" class="screen hidden">
+      <div class="card">
+        <h1>Export</h1>
+        <p class="muted">Select sessions, then share or download.</p>
+        <div id="export-empty" class="muted hidden">No recorded sessions yet.</div>
+        <div id="export-list" class="session-list"></div>
+        <div class="button-row">
+          <button id="btn-export-summary">Share summary (JSON)</button>
+          <button id="btn-export-raw">Share raw samples (CSV)</button>
+          <button id="btn-export-back" class="secondary">Back</button>
+        </div>
+        <div id="export-status" class="muted hidden"></div>
+        <div id="export-error" class="error hidden"></div>
+      </div>
+    </section>
+
+    <section id="screen-admin" class="screen hidden">
+      <div class="card">
+        <h1>Admin</h1>
+        <div id="admin-storage" class="muted"></div>
+        <div id="admin-empty" class="muted hidden">No recorded sessions yet.</div>
+        <div id="admin-list" class="session-list"></div>
+        <div class="button-row">
+          <button id="btn-admin-export-selected" class="secondary">Export selected</button>
+          <button id="btn-admin-delete" class="danger">Delete selected</button>
+          <button id="btn-admin-back" class="secondary">Back</button>
+        </div>
+        <div id="admin-error" class="error hidden"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    "use strict";
+
+    const SERVICE_UUID = "7f6d0001-6f7a-4f4e-9a8b-3b7f4b000001";
+    const TELEMETRY_UUID = "7f6d0002-6f7a-4f4e-9a8b-3b7f4b000001";
+
+    const STATE_NAMES = {
+      0: "UNLOCKED",
+      1: "LOCKING",
+      2: "LOCKED",
+      3: "HOLDOVER",
+      255: "UNKNOWN"
+    };
+
+    const DB_NAME = "tremor_recorder_db";
+    const DB_VERSION = 1;
+    const STORE_SESSIONS = "sessions";
+    const STORE_SAMPLES = "samples";
+    const STORE_AGGREGATES = "aggregates";
+
+    const CONFIG_KEY = "tremor_recorder_config_v1";
+    const DEFAULT_CONFIG = {
+      aggregateIntervalSeconds: 10,
+      activeStimWindowSeconds: 8
+    };
+    const AGGREGATE_INTERVAL_PRESETS = [10, 30, 60, 120, 300, 900, 1800, 3600];
+
+    let bluetoothDevice = null;
+    let gattServer = null;
+    let telemetryCharacteristic = null;
+    let notificationsActive = false;
+    let currentSession = null;
+    let isRecording = false;
+    let storageErrorShown = false;
+    let stimCountHistory = [];
+    let currentAggregate = null;
+    let appConfig = loadConfig();
+    let currentReviewSessionId = null;
+    let dbPromise = null;
+    const exportSelection = new Set();
+    const adminSelection = new Set();
+
+    const el = {};
+
+    window.addEventListener("load", initApp);
+
+    function initApp() {
+      cacheElements();
+      bindEvents();
+      updateStartStatus("Not connected", false);
+      showScreen("start");
+      enableSimulationMode();
+
+      if (!navigator.bluetooth) {
+        showError("start", "Web Bluetooth is not available in this browser. Use Chrome or Edge on a supported device.");
+        el.btnStart.disabled = true;
+      }
+    }
+
+    function cacheElements() {
+      el.screens = {
+        start: document.getElementById("screen-start"),
+        recording: document.getElementById("screen-recording"),
+        saved: document.getElementById("screen-saved"),
+        review: document.getElementById("screen-review"),
+        sessions: document.getElementById("screen-sessions"),
+        config: document.getElementById("screen-config"),
+        export: document.getElementById("screen-export"),
+        admin: document.getElementById("screen-admin")
+      };
+
+      el.btnStart = document.getElementById("btn-start");
+      el.btnGoSessions = document.getElementById("btn-go-sessions");
+      el.btnGoExport = document.getElementById("btn-go-export");
+      el.btnGoAdmin = document.getElementById("btn-go-admin");
+      el.btnGoConfig = document.getElementById("btn-go-config");
+      el.btnSimulate = document.getElementById("btn-simulate");
+      el.btnStop = document.getElementById("btn-stop");
+      el.btnReviewSaved = document.getElementById("btn-review-saved");
+      el.btnNew = document.getElementById("btn-new");
+      el.btnExportCsv = document.getElementById("btn-export-csv");
+      el.btnBackStart = document.getElementById("btn-back-start");
+
+      el.startDot = document.getElementById("start-dot");
+      el.startStatus = document.getElementById("start-status");
+      el.startError = document.getElementById("start-error");
+      el.recordingStatus = document.getElementById("recording-status");
+      el.recordingError = document.getElementById("recording-error");
+
+      el.liveState = document.getElementById("live-state");
+      el.liveStimHz = document.getElementById("live-stim-hz");
+      el.liveHz = document.getElementById("live-hz");
+      el.liveMag = document.getElementById("live-mag");
+      el.liveSamples = document.getElementById("live-samples");
+      el.liveStim = document.getElementById("live-stim");
+
+      el.savedSummary = document.getElementById("saved-summary");
+
+      el.reviewEmpty = document.getElementById("review-empty");
+      el.reviewContent = document.getElementById("review-content");
+      el.reviewTitle = document.getElementById("review-title");
+      el.reviewSummaryBody = document.getElementById("review-summary-body");
+      el.aggregatesPreview = document.getElementById("aggregates-preview");
+      el.chartTremor = document.getElementById("chart-tremor");
+      el.chartMagnitude = document.getElementById("chart-magnitude");
+      el.reviewError = document.getElementById("review-error");
+
+      el.sessionsEmpty = document.getElementById("sessions-empty");
+      el.sessionsList = document.getElementById("sessions-list");
+      el.btnSessionsBack = document.getElementById("btn-sessions-back");
+
+      el.cfgInterval = document.getElementById("cfg-interval");
+      el.cfgWindow = document.getElementById("cfg-window");
+      el.btnConfigSave = document.getElementById("btn-config-save");
+      el.btnConfigBack = document.getElementById("btn-config-back");
+      el.configSavedMsg = document.getElementById("config-saved-msg");
+
+      el.exportEmpty = document.getElementById("export-empty");
+      el.exportList = document.getElementById("export-list");
+      el.btnExportSummary = document.getElementById("btn-export-summary");
+      el.btnExportRaw = document.getElementById("btn-export-raw");
+      el.btnExportBack = document.getElementById("btn-export-back");
+      el.exportStatus = document.getElementById("export-status");
+      el.exportError = document.getElementById("export-error");
+
+      el.adminStorage = document.getElementById("admin-storage");
+      el.adminEmpty = document.getElementById("admin-empty");
+      el.adminList = document.getElementById("admin-list");
+      el.btnAdminExportSelected = document.getElementById("btn-admin-export-selected");
+      el.btnAdminDelete = document.getElementById("btn-admin-delete");
+      el.btnAdminBack = document.getElementById("btn-admin-back");
+      el.adminError = document.getElementById("admin-error");
+
+      el.errors = {
+        start: el.startError,
+        recording: el.recordingError,
+        review: el.reviewError,
+        export: el.exportError,
+        admin: el.adminError
+      };
+    }
+
+    function bindEvents() {
+      el.btnStart.addEventListener("click", startRecording);
+      el.btnGoSessions.addEventListener("click", showSessionsScreen);
+      el.btnGoExport.addEventListener("click", () => showExportScreen());
+      el.btnGoAdmin.addEventListener("click", showAdminScreen);
+      el.btnGoConfig.addEventListener("click", showConfigScreen);
+      el.btnSimulate.addEventListener("click", runSimulatedSession);
+
+      el.btnStop.addEventListener("click", stopAndSaveRecording);
+      el.btnReviewSaved.addEventListener("click", () => showReview(currentSession ? currentSession.id : null));
+      el.btnNew.addEventListener("click", startRecording);
+      el.btnExportCsv.addEventListener("click", exportReviewCsv);
+      el.btnBackStart.addEventListener("click", () => showScreen("start"));
+
+      el.btnSessionsBack.addEventListener("click", () => showScreen("start"));
+
+      el.btnConfigSave.addEventListener("click", saveConfigFromForm);
+      el.btnConfigBack.addEventListener("click", () => showScreen("start"));
+
+      el.btnExportSummary.addEventListener("click", exportSummaryJson);
+      el.btnExportRaw.addEventListener("click", exportRawCsv);
+      el.btnExportBack.addEventListener("click", () => showScreen("start"));
+
+      el.btnAdminExportSelected.addEventListener("click", () => showExportScreen(new Set(adminSelection)));
+      el.btnAdminDelete.addEventListener("click", deleteSelectedSessions);
+      el.btnAdminBack.addEventListener("click", () => showScreen("start"));
+    }
+
+    function showScreen(name) {
+      for (const key of Object.keys(el.screens)) {
+        el.screens[key].classList.toggle("hidden", key !== name);
+      }
+    }
+
+    // ---------------------------------------------------------------------
+    // IndexedDB helpers
+    // ---------------------------------------------------------------------
+
+    function openDb() {
+      if (!dbPromise) {
+        dbPromise = new Promise((resolve, reject) => {
+          const req = indexedDB.open(DB_NAME, DB_VERSION);
+          req.onupgradeneeded = () => {
+            const db = req.result;
+            if (!db.objectStoreNames.contains(STORE_SESSIONS)) {
+              db.createObjectStore(STORE_SESSIONS, { keyPath: "id" });
+            }
+            if (!db.objectStoreNames.contains(STORE_SAMPLES)) {
+              const samples = db.createObjectStore(STORE_SAMPLES, { keyPath: "sampleId", autoIncrement: true });
+              samples.createIndex("by_session", "sessionId");
+              samples.createIndex("by_session_time", ["sessionId", "phoneEpochMs"]);
+            }
+            if (!db.objectStoreNames.contains(STORE_AGGREGATES)) {
+              const aggregates = db.createObjectStore(STORE_AGGREGATES, { keyPath: "aggregateId", autoIncrement: true });
+              aggregates.createIndex("by_session", "sessionId");
+            }
+          };
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => reject(req.error);
+        });
+      }
+      return dbPromise;
+    }
+
+    function idbRequest(req) {
+      return new Promise((resolve, reject) => {
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function idbTxDone(tx) {
+      return new Promise((resolve, reject) => {
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
+      });
+    }
+
+    async function idbAdd(storeName, value) {
+      const db = await openDb();
+      const tx = db.transaction(storeName, "readwrite");
+      tx.objectStore(storeName).add(value);
+      await idbTxDone(tx);
+    }
+
+    async function idbPut(storeName, value) {
+      const db = await openDb();
+      const tx = db.transaction(storeName, "readwrite");
+      tx.objectStore(storeName).put(value);
+      await idbTxDone(tx);
+    }
+
+    async function idbGet(storeName, key) {
+      const db = await openDb();
+      const tx = db.transaction(storeName, "readonly");
+      const result = await idbRequest(tx.objectStore(storeName).get(key));
+      await idbTxDone(tx);
+      return result;
+    }
+
+    async function idbGetAll(storeName) {
+      const db = await openDb();
+      const tx = db.transaction(storeName, "readonly");
+      const result = await idbRequest(tx.objectStore(storeName).getAll());
+      await idbTxDone(tx);
+      return result;
+    }
+
+    async function idbGetAllByIndex(storeName, indexName, range) {
+      const db = await openDb();
+      const tx = db.transaction(storeName, "readonly");
+      const result = await idbRequest(tx.objectStore(storeName).index(indexName).getAll(range));
+      await idbTxDone(tx);
+      return result;
+    }
+
+    async function idbDelete(storeName, key) {
+      const db = await openDb();
+      const tx = db.transaction(storeName, "readwrite");
+      tx.objectStore(storeName).delete(key);
+      await idbTxDone(tx);
+    }
+
+    async function idbDeleteByIndex(storeName, indexName, key) {
+      const db = await openDb();
+      const tx = db.transaction(storeName, "readwrite");
+      const index = tx.objectStore(storeName).index(indexName);
+      await new Promise((resolve, reject) => {
+        const cursorReq = index.openCursor(key);
+        cursorReq.onsuccess = () => {
+          const cursor = cursorReq.result;
+          if (cursor) {
+            cursor.delete();
+            cursor.continue();
+          } else {
+            resolve();
+          }
+        };
+        cursorReq.onerror = () => reject(cursorReq.error);
+      });
+      await idbTxDone(tx);
+    }
+
+    async function getLastSample(sessionId) {
+      const db = await openDb();
+      const tx = db.transaction(STORE_SAMPLES, "readonly");
+      const index = tx.objectStore(STORE_SAMPLES).index("by_session_time");
+      const range = IDBKeyRange.bound([sessionId, 0], [sessionId, Number.MAX_SAFE_INTEGER]);
+      const result = await new Promise((resolve, reject) => {
+        const cursorReq = index.openCursor(range, "prev");
+        cursorReq.onsuccess = () => {
+          const cursor = cursorReq.result;
+          resolve(cursor ? cursor.value : null);
+        };
+        cursorReq.onerror = () => reject(cursorReq.error);
+      });
+      await idbTxDone(tx);
+      return result;
+    }
+
+    // ---------------------------------------------------------------------
+    // Config (localStorage)
+    // ---------------------------------------------------------------------
+
+    function loadConfig() {
+      try {
+        const raw = localStorage.getItem(CONFIG_KEY);
+        if (!raw) {
+          return { ...DEFAULT_CONFIG };
+        }
+        return { ...DEFAULT_CONFIG, ...JSON.parse(raw) };
+      } catch (_) {
+        return { ...DEFAULT_CONFIG };
+      }
+    }
+
+    function saveConfig(partial) {
+      appConfig = { ...appConfig, ...partial };
+      try {
+        localStorage.setItem(CONFIG_KEY, JSON.stringify(appConfig));
+      } catch (_) {
+        // Ignore persistence errors; config still applies for this session.
+      }
+      return appConfig;
+    }
+
+    // ---------------------------------------------------------------------
+    // Recording pipeline
+    // ---------------------------------------------------------------------
+
+    async function startRecording() {
+      clearError("start");
+      clearError("recording");
+      el.btnStart.disabled = true;
+      el.btnNew.disabled = true;
+      updateStartStatus("Connecting...", false);
+
+      try {
+        currentSession = createSession();
+        await connectDevice();
+        await idbPut(STORE_SESSIONS, currentSession);
+        isRecording = true;
+        storageErrorShown = false;
+        stimCountHistory = [];
+        currentAggregate = null;
+        resetLiveDisplay();
+        showScreen("recording");
+      } catch (err) {
+        currentSession = null;
+        isRecording = false;
+        await safeDisconnect();
+        updateStartStatus("Not connected", false);
+        showScreen("start");
+        showError("start", readableError(err));
+      } finally {
+        el.btnStart.disabled = false;
+        el.btnNew.disabled = false;
+      }
+    }
+
+    async function connectDevice() {
+      if (!bluetoothDevice) {
+        bluetoothDevice = await navigator.bluetooth.requestDevice({
+          filters: [{ namePrefix: "TREMOR" }],
+          optionalServices: [SERVICE_UUID]
+        });
+        bluetoothDevice.addEventListener("gattserverdisconnected", handleDisconnected);
+      }
+
+      gattServer = await bluetoothDevice.gatt.connect();
+      const service = await gattServer.getPrimaryService(SERVICE_UUID);
+      telemetryCharacteristic = await service.getCharacteristic(TELEMETRY_UUID);
+
+      if (!notificationsActive) {
+        await telemetryCharacteristic.startNotifications();
+        telemetryCharacteristic.addEventListener("characteristicvaluechanged", handleTelemetryNotification);
+        notificationsActive = true;
+      }
+
+      if (currentSession) {
+        currentSession.deviceName = bluetoothDevice.name || "TremorStim";
+      }
+
+      updateStartStatus("Connected", true);
+    }
+
+    async function handleDisconnected() {
+      updateStartStatus("Disconnected", false);
+      gattServer = null;
+      telemetryCharacteristic = null;
+      notificationsActive = false;
+
+      if (!isRecording) {
+        return;
+      }
+
+      isRecording = false;
+      if (currentSession) {
+        currentSession.stoppedAtEpochMs = Date.now();
+        currentSession.disconnectReason = "Bluetooth disconnected";
+        await flushAggregate();
+        await idbPut(STORE_SESSIONS, currentSession);
+        const summary = await makeSavedSummary(currentSession);
+        el.savedSummary.textContent = summary + " Connection was lost; partial session saved.";
+        showScreen("saved");
+      }
+    }
+
+    function handleTelemetryNotification(event) {
+      if (!isRecording || !currentSession) {
+        return;
+      }
+
+      const value = event.target.value;
+      const decoded = decodeTelemetryPacket(value);
+      if (!decoded) {
+        return;
+      }
+
+      const sample = enrichSample(decoded);
+      processSampleForRecording(sample);
+      updateLiveDisplay(sample, currentSession.sampleCount);
+    }
+
+    function decodeTelemetryPacket(dataView) {
+      if (!dataView || dataView.byteLength < 13) {
+        return null;
+      }
+
+      const deviceTimeMs = dataView.getUint32(0, true);
+      const stateCode    = dataView.getUint8(4);
+      const schedHz      = dataView.getUint16(5, true) / 100.0;
+      const tremorHz     = dataView.getUint16(7, true) / 100.0;
+      const magnitude    = dataView.getUint16(9, true) / 10.0;
+      const stimCount    = dataView.getUint16(11, true);
+
+      return {
+        deviceTimeMs,
+        stateCode,
+        stateName: STATE_NAMES[stateCode] || "UNKNOWN",
+        schedHz,
+        tremorHz,
+        magnitude,
+        stimCount
+      };
+    }
+
+    function enrichSample(sample) {
+      sample.phoneEpochMs = Date.now();
+      sample.phonePerfMs = performance.now();
+      return sample;
+    }
+
+    function createSession() {
+      const now = Date.now();
+      return {
+        id: new Date(now).toISOString(),
+        startedAtEpochMs: now,
+        stoppedAtEpochMs: null,
+        deviceName: "",
+        disconnectReason: null,
+        config: { ...appConfig },
+        sampleCount: 0
+      };
+    }
+
+    function processSampleForRecording(sample) {
+      const session = currentSession;
+      sample.sessionId = session.id;
+      session.sampleCount += 1;
+
+      idbAdd(STORE_SAMPLES, sample).catch(handleStorageError);
+
+      const windowMs = (session.config.activeStimWindowSeconds || DEFAULT_CONFIG.activeStimWindowSeconds) * 1000;
+      stimCountHistory.push({ epochMs: sample.phoneEpochMs, stimCount: sample.stimCount });
+      while (stimCountHistory.length > 1 && sample.phoneEpochMs - stimCountHistory[0].epochMs > windowMs) {
+        stimCountHistory.shift();
+      }
+      const isActive = stimCountHistory.length > 0 && sample.stimCount > stimCountHistory[0].stimCount;
+
+      const intervalMs = (session.config.aggregateIntervalSeconds || DEFAULT_CONFIG.aggregateIntervalSeconds) * 1000;
+      const intervalIndex = Math.floor((sample.phoneEpochMs - session.startedAtEpochMs) / intervalMs);
+
+      if (!currentAggregate || currentAggregate.intervalIndex !== intervalIndex) {
+        if (currentAggregate) {
+          flushAggregate();
+        }
+        const intervalStartMs = session.startedAtEpochMs + intervalIndex * intervalMs;
+        currentAggregate = createAggregateAccumulator(intervalIndex, intervalStartMs, intervalStartMs + intervalMs);
+      }
+
+      accumulateSample(currentAggregate, sample, isActive);
+    }
+
+    function createAggregateAccumulator(intervalIndex, intervalStartMs, intervalEndMs) {
+      return {
+        sessionId: currentSession.id,
+        intervalIndex,
+        intervalStartMs,
+        intervalEndMs,
+        sampleCount: 0,
+        activeCount: 0,
+        coverageCount: 0,
+        tremor: { min: null, max: null, sum: 0, count: 0 },
+        magnitude: { min: null, max: null, sum: 0, count: 0 }
+      };
+    }
+
+    function accumulateSample(aggregate, sample, isActive) {
+      aggregate.sampleCount += 1;
+      if (isActive) {
+        aggregate.activeCount += 1;
+      }
+
+      const mag = aggregate.magnitude;
+      mag.sum += sample.magnitude;
+      mag.count += 1;
+      mag.min = mag.min === null ? sample.magnitude : Math.min(mag.min, sample.magnitude);
+      mag.max = mag.max === null ? sample.magnitude : Math.max(mag.max, sample.magnitude);
+
+      if (sample.tremorHz !== 0) {
+        aggregate.coverageCount += 1;
+        const tremor = aggregate.tremor;
+        tremor.sum += sample.tremorHz;
+        tremor.count += 1;
+        tremor.min = tremor.min === null ? sample.tremorHz : Math.min(tremor.min, sample.tremorHz);
+        tremor.max = tremor.max === null ? sample.tremorHz : Math.max(tremor.max, sample.tremorHz);
+      }
+    }
+
+    async function flushAggregate() {
+      if (!currentAggregate || currentAggregate.sampleCount === 0) {
+        currentAggregate = null;
+        return;
+      }
+
+      const agg = currentAggregate;
+      currentAggregate = null;
+
+      const record = {
+        sessionId: agg.sessionId,
+        intervalIndex: agg.intervalIndex,
+        intervalStartMs: agg.intervalStartMs,
+        intervalEndMs: agg.intervalEndMs,
+        sampleCount: agg.sampleCount,
+        tremor: {
+          min: agg.tremor.min,
+          max: agg.tremor.max,
+          avg: agg.tremor.count ? agg.tremor.sum / agg.tremor.count : null
+        },
+        magnitude: {
+          min: agg.magnitude.min,
+          max: agg.magnitude.max,
+          avg: agg.magnitude.count ? agg.magnitude.sum / agg.magnitude.count : 0
+        },
+        activeStimFraction: agg.sampleCount ? agg.activeCount / agg.sampleCount : 0,
+        coveragePct: agg.sampleCount ? (agg.coverageCount / agg.sampleCount) * 100 : 0
+      };
+
+      await idbAdd(STORE_AGGREGATES, record).catch(handleStorageError);
+    }
+
+    async function stopAndSaveRecording() {
+      clearError("recording");
+      el.btnStop.disabled = true;
+
+      try {
+        isRecording = false;
+        if (currentSession) {
+          currentSession.stoppedAtEpochMs = Date.now();
+          await flushAggregate();
+          await idbPut(STORE_SESSIONS, currentSession);
+          el.savedSummary.textContent = await makeSavedSummary(currentSession);
+        }
+        showScreen("saved");
+      } catch (err) {
+        showError("recording", readableError(err));
+      } finally {
+        el.btnStop.disabled = false;
+      }
+    }
+
+    async function safeDisconnect() {
+      try {
+        if (telemetryCharacteristic) {
+          try {
+            telemetryCharacteristic.removeEventListener("characteristicvaluechanged", handleTelemetryNotification);
+            await telemetryCharacteristic.stopNotifications();
+          } catch (_) {
+            // Ignore notification shutdown errors.
+          }
+        }
+
+        if (bluetoothDevice && bluetoothDevice.gatt && bluetoothDevice.gatt.connected) {
+          bluetoothDevice.gatt.disconnect();
+        }
+      } finally {
+        telemetryCharacteristic = null;
+        gattServer = null;
+        bluetoothDevice = null;
+        notificationsActive = false;
+        updateStartStatus("Not connected", false);
+      }
+    }
+
+    function handleStorageError(err) {
+      console.error("Storage error", err);
+      if (!storageErrorShown) {
+        storageErrorShown = true;
+        const screen = isRecording ? "recording" : "start";
+        showError(screen, "Storage error: " + readableError(err) + " Some data may not be saved.");
+      }
+    }
+
+    // ---------------------------------------------------------------------
+    // Session listing & summaries
+    // ---------------------------------------------------------------------
+
+    async function loadSessionSummaries() {
+      const sessions = await idbGetAll(STORE_SESSIONS);
+      sessions.sort((a, b) => b.startedAtEpochMs - a.startedAtEpochMs);
+      return sessions;
+    }
+
+    async function summarizeSession(sessionId) {
+      const session = await idbGet(STORE_SESSIONS, sessionId);
+      if (!session) {
+        return null;
+      }
+
+      const aggregates = await idbGetAllByIndex(STORE_AGGREGATES, "by_session", sessionId);
+      aggregates.sort((a, b) => a.intervalIndex - b.intervalIndex);
+
+      let tremorSum = 0;
+      let tremorWeight = 0;
+      let magSum = 0;
+      let magWeight = 0;
+      let maxMagnitude = 0;
+
+      for (const agg of aggregates) {
+        if (agg.magnitude.max !== null && agg.magnitude.max > maxMagnitude) {
+          maxMagnitude = agg.magnitude.max;
+        }
+        if (agg.magnitude.avg !== null) {
+          magSum += agg.magnitude.avg * agg.sampleCount;
+          magWeight += agg.sampleCount;
+        }
+        if (agg.tremor.avg !== null) {
+          const tremorSamples = agg.sampleCount * (agg.coveragePct / 100);
+          tremorSum += agg.tremor.avg * tremorSamples;
+          tremorWeight += tremorSamples;
+        }
+      }
+
+      const lastSample = await getLastSample(sessionId);
+      const stopped = session.stoppedAtEpochMs || Date.now();
+
+      return {
+        session,
+        aggregates,
+        durationMs: stopped - session.startedAtEpochMs,
+        sampleCount: session.sampleCount || 0,
+        avgTremorHz: tremorWeight ? tremorSum / tremorWeight : 0,
+        avgMagnitude: magWeight ? magSum / magWeight : 0,
+        maxMagnitude,
+        finalStimCount: lastSample ? lastSample.stimCount : 0
+      };
+    }
+
+    async function makeSavedSummary(session) {
+      const summary = await summarizeSession(session.id);
+      if (!summary) {
+        return "Session saved.";
+      }
+      return "Duration: " + formatDuration(summary.durationMs) +
+        " · Samples: " + summary.sampleCount +
+        " · Average tremor frequency: " + summary.avgTremorHz.toFixed(2) + " Hz";
+    }
+
+    function renderSessionList(container, sessions, options) {
+      options = options || {};
+      container.innerHTML = "";
+
+      for (const session of sessions) {
+        const row = document.createElement("div");
+        row.className = "session-row";
+
+        if (options.selectable) {
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.checked = !!(options.initialSelection && options.initialSelection.has(session.id));
+          checkbox.addEventListener("change", () => {
+            if (options.onChange) {
+              options.onChange(session.id, checkbox.checked);
+            }
+          });
+          row.appendChild(checkbox);
+        }
+
+        const info = document.createElement("div");
+        info.className = "session-info";
+
+        const title = document.createElement("div");
+        title.className = "session-title";
+        title.textContent = new Date(session.startedAtEpochMs).toLocaleString();
+        info.appendChild(title);
+
+        const meta = document.createElement("div");
+        meta.className = "session-meta";
+        const stopped = session.stoppedAtEpochMs || Date.now();
+        let metaText = formatDuration(stopped - session.startedAtEpochMs) + " · " + (session.sampleCount || 0) + " samples";
+        if (!session.stoppedAtEpochMs) {
+          metaText += " · in progress";
+        }
+        meta.textContent = metaText;
+        info.appendChild(meta);
+
+        row.appendChild(info);
+
+        if (options.onReview) {
+          const button = document.createElement("button");
+          button.className = "secondary";
+          button.textContent = "Review";
+          button.addEventListener("click", () => options.onReview(session.id));
+          row.appendChild(button);
+        }
+
+        container.appendChild(row);
+      }
+    }
+
+    // ---------------------------------------------------------------------
+    // Sessions screen
+    // ---------------------------------------------------------------------
+
+    async function showSessionsScreen() {
+      showScreen("sessions");
+      const sessions = await loadSessionSummaries();
+      el.sessionsEmpty.classList.toggle("hidden", sessions.length > 0);
+      renderSessionList(el.sessionsList, sessions, {
+        onReview: (sessionId) => showReview(sessionId)
+      });
+    }
+
+    // ---------------------------------------------------------------------
+    // Review screen
+    // ---------------------------------------------------------------------
+
+    async function showReview(sessionId) {
+      showScreen("review");
+      clearError("review");
+      currentReviewSessionId = sessionId;
+
+      if (!sessionId) {
+        el.reviewEmpty.classList.remove("hidden");
+        el.reviewContent.classList.add("hidden");
+        return;
+      }
+
+      const summary = await summarizeSession(sessionId);
+      if (!summary) {
+        el.reviewEmpty.classList.remove("hidden");
+        el.reviewContent.classList.add("hidden");
+        return;
+      }
+
+      el.reviewEmpty.classList.add("hidden");
+      el.reviewContent.classList.remove("hidden");
+
+      el.reviewTitle.textContent = "Session - " + new Date(summary.session.startedAtEpochMs).toLocaleString();
+      el.reviewSummaryBody.innerHTML = "";
+      addSummaryRow("Started", new Date(summary.session.startedAtEpochMs).toLocaleString());
+      addSummaryRow("Duration", formatDuration(summary.durationMs));
+      addSummaryRow("Samples", String(summary.sampleCount));
+      addSummaryRow("Average tremor frequency", summary.avgTremorHz.toFixed(2) + " Hz");
+      addSummaryRow("Average magnitude", summary.avgMagnitude.toFixed(1));
+      addSummaryRow("Maximum magnitude", summary.maxMagnitude.toFixed(1));
+      addSummaryRow("Final stimulation count", String(summary.finalStimCount));
+
+      renderAggregatesPreview(summary.aggregates);
+      renderTremorChart(summary.aggregates);
+      renderMagnitudeChart(summary.aggregates);
+    }
+
+    function addSummaryRow(label, value) {
+      const tr = document.createElement("tr");
+      const tdLabel = document.createElement("td");
+      const tdValue = document.createElement("td");
+      tdLabel.textContent = label;
+      tdValue.textContent = value;
+      tr.appendChild(tdLabel);
+      tr.appendChild(tdValue);
+      el.reviewSummaryBody.appendChild(tr);
+    }
+
+    function renderAggregatesPreview(aggregates) {
+      if (!aggregates || aggregates.length === 0) {
+        el.aggregatesPreview.innerHTML = "<p class=\"muted\">No completed intervals yet.</p>";
+        return;
+      }
+
+      let html = "<table><thead><tr>" +
+        "<th>Start</th><th>Tremor min/avg/max (Hz)</th><th>Mag min/avg/max</th><th>Coverage</th><th>Active</th>" +
+        "</tr></thead><tbody>";
+
+      for (const agg of aggregates) {
+        const tremorText = agg.tremor.avg === null
+          ? "--"
+          : agg.tremor.min.toFixed(2) + " / " + agg.tremor.avg.toFixed(2) + " / " + agg.tremor.max.toFixed(2);
+        const magText = agg.magnitude.min === null
+          ? "--"
+          : agg.magnitude.min.toFixed(1) + " / " + agg.magnitude.avg.toFixed(1) + " / " + agg.magnitude.max.toFixed(1);
+
+        html += "<tr>" +
+          "<td>" + escapeHtml(new Date(agg.intervalStartMs).toLocaleTimeString()) + "</td>" +
+          "<td>" + tremorText + "</td>" +
+          "<td>" + magText + "</td>" +
+          "<td>" + agg.coveragePct.toFixed(0) + "%</td>" +
+          "<td>" + (agg.activeStimFraction * 100).toFixed(0) + "%</td>" +
+          "</tr>";
+      }
+
+      html += "</tbody></table>";
+      el.aggregatesPreview.innerHTML = html;
+    }
+
+    const CHART_WIDTH = 600;
+    const CHART_HEIGHT = 160;
+    const CHART_PADDING = { top: 12, right: 10, bottom: 24, left: 10 };
+
+    function buildRangeChartSvg(aggregates, field, opts) {
+      const points = [];
+      for (const agg of aggregates) {
+        const stats = agg[field];
+        if (stats.avg === null || stats.min === null || stats.max === null) continue;
+        points.push({ t: agg.intervalStartMs, min: stats.min, avg: stats.avg, max: stats.max });
+      }
+
+      if (points.length === 0) {
+        return "<p class=\"muted\">No data to chart yet.</p>";
+      }
+
+      let avgMin = Infinity;
+      let avgMax = -Infinity;
+      for (const p of points) {
+        avgMin = Math.min(avgMin, p.avg);
+        avgMax = Math.max(avgMax, p.avg);
+      }
+      let yMin = avgMin * 0.8;
+      let yMax = avgMax * 1.2;
+      if (yMin === yMax) {
+        yMin -= 1;
+        yMax += 1;
+      }
+
+      const plotW = CHART_WIDTH - CHART_PADDING.left - CHART_PADDING.right;
+      const plotH = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
+
+      // Clamp band values to the avg-derived range so outlier min/max samples
+      // don't blow out the axis scale; the band is visually capped at the edges.
+      const clampY = (v) => Math.min(yMax, Math.max(yMin, v));
+      const xFor = (i) => CHART_PADDING.left + (points.length === 1 ? plotW / 2 : (i / (points.length - 1)) * plotW);
+      const yFor = (v) => CHART_PADDING.top + (1 - (clampY(v) - yMin) / (yMax - yMin)) * plotH;
+
+      let bandPath = "M " + xFor(0) + " " + yFor(points[0].min);
+      for (let i = 1; i < points.length; i++) {
+        bandPath += " L " + xFor(i) + " " + yFor(points[i].min);
+      }
+      for (let i = points.length - 1; i >= 0; i--) {
+        bandPath += " L " + xFor(i) + " " + yFor(points[i].max);
+      }
+      bandPath += " Z";
+
+      let avgPath = "M " + xFor(0) + " " + yFor(points[0].avg);
+      for (let i = 1; i < points.length; i++) {
+        avgPath += " L " + xFor(i) + " " + yFor(points[i].avg);
+      }
+
+      const firstLabel = escapeHtml(new Date(points[0].t).toLocaleTimeString());
+      const lastLabel = escapeHtml(new Date(points[points.length - 1].t).toLocaleTimeString());
+
+      return "<svg viewBox=\"0 0 " + CHART_WIDTH + " " + CHART_HEIGHT + "\" preserveAspectRatio=\"none\" class=\"chart-svg\">" +
+        "<text x=\"" + CHART_PADDING.left + "\" y=\"10\" class=\"chart-axis-label\">" + yMax.toFixed(opts.decimals) + "</text>" +
+        "<text x=\"" + CHART_PADDING.left + "\" y=\"" + (CHART_HEIGHT - CHART_PADDING.bottom) + "\" class=\"chart-axis-label\">" + yMin.toFixed(opts.decimals) + "</text>" +
+        "<path d=\"" + bandPath + "\" class=\"chart-band\" style=\"fill:" + opts.color + "\"></path>" +
+        "<path d=\"" + avgPath + "\" class=\"chart-line\" style=\"stroke:" + opts.color + "\" fill=\"none\"></path>" +
+        "<text x=\"" + CHART_PADDING.left + "\" y=\"" + (CHART_HEIGHT - 4) + "\" class=\"chart-axis-label\">" + firstLabel + "</text>" +
+        "<text x=\"" + (CHART_WIDTH - CHART_PADDING.right) + "\" y=\"" + (CHART_HEIGHT - 4) + "\" text-anchor=\"end\" class=\"chart-axis-label\">" + lastLabel + "</text>" +
+        "</svg>";
+    }
+
+    function renderTremorChart(aggregates) {
+      if (!aggregates || aggregates.length === 0) {
+        el.chartTremor.innerHTML = "<p class=\"muted\">No completed intervals yet.</p>";
+        return;
+      }
+      el.chartTremor.innerHTML = buildRangeChartSvg(aggregates, "tremor", { color: "#1f6feb", decimals: 2 }) +
+        "<div class=\"chart-legend\">Line = average, shaded band = min–max per interval</div>";
+    }
+
+    function renderMagnitudeChart(aggregates) {
+      if (!aggregates || aggregates.length === 0) {
+        el.chartMagnitude.innerHTML = "<p class=\"muted\">No completed intervals yet.</p>";
+        return;
+      }
+      el.chartMagnitude.innerHTML = buildRangeChartSvg(aggregates, "magnitude", { color: "#b45309", decimals: 1 }) +
+        "<div class=\"chart-legend\">Line = average, shaded band = min–max per interval</div>";
+    }
+
+    async function exportReviewCsv() {
+      if (!currentReviewSessionId) {
+        return;
+      }
+      clearError("review");
+      try {
+        const csv = await buildRawCsv([currentReviewSessionId]);
+        const blob = new Blob([csv], { type: "text/csv" });
+        downloadBlob(blob, "tremor-session-" + safeFilename(currentReviewSessionId) + ".csv");
+      } catch (err) {
+        showError("review", readableError(err));
+      }
+    }
+
+    // ---------------------------------------------------------------------
+    // Settings screen
+    // ---------------------------------------------------------------------
+
+    function showConfigScreen() {
+      showScreen("config");
+      el.configSavedMsg.classList.add("hidden");
+      el.cfgInterval.value = String(appConfig.aggregateIntervalSeconds);
+      el.cfgWindow.value = String(appConfig.activeStimWindowSeconds);
+    }
+
+    function saveConfigFromForm() {
+      let interval = parseInt(el.cfgInterval.value, 10);
+      if (!AGGREGATE_INTERVAL_PRESETS.includes(interval)) {
+        interval = DEFAULT_CONFIG.aggregateIntervalSeconds;
+      }
+
+      let windowSeconds = parseInt(el.cfgWindow.value, 10);
+      if (!Number.isFinite(windowSeconds)) {
+        windowSeconds = DEFAULT_CONFIG.activeStimWindowSeconds;
+      }
+      windowSeconds = Math.min(60, Math.max(3, windowSeconds));
+
+      saveConfig({ aggregateIntervalSeconds: interval, activeStimWindowSeconds: windowSeconds });
+
+      el.cfgInterval.value = String(appConfig.aggregateIntervalSeconds);
+      el.cfgWindow.value = String(appConfig.activeStimWindowSeconds);
+      el.configSavedMsg.classList.remove("hidden");
+    }
+
+    // ---------------------------------------------------------------------
+    // Export screen
+    // ---------------------------------------------------------------------
+
+    async function showExportScreen(initialSelection) {
+      showScreen("export");
+      clearError("export");
+      el.exportStatus.classList.add("hidden");
+      exportSelection.clear();
+      if (initialSelection) {
+        for (const id of initialSelection) {
+          exportSelection.add(id);
+        }
+      }
+      await renderExportList();
+    }
+
+    async function renderExportList() {
+      const sessions = await loadSessionSummaries();
+      el.exportEmpty.classList.toggle("hidden", sessions.length > 0);
+      renderSessionList(el.exportList, sessions, {
+        selectable: true,
+        initialSelection: exportSelection,
+        onChange: (sessionId, checked) => {
+          if (checked) {
+            exportSelection.add(sessionId);
+          } else {
+            exportSelection.delete(sessionId);
+          }
+        }
+      });
+    }
+
+    async function exportSummaryJson() {
+      clearError("export");
+      if (exportSelection.size === 0) {
+        showError("export", "Select at least one session.");
+        return;
+      }
+
+      try {
+        const sessionIds = Array.from(exportSelection);
+        const bundle = [];
+        for (const sessionId of sessionIds) {
+          const summary = await summarizeSession(sessionId);
+          if (!summary) continue;
+          bundle.push({
+            session: {
+              id: summary.session.id,
+              startedAtEpochMs: summary.session.startedAtEpochMs,
+              stoppedAtEpochMs: summary.session.stoppedAtEpochMs,
+              deviceName: summary.session.deviceName,
+              disconnectReason: summary.session.disconnectReason,
+              config: summary.session.config,
+              sampleCount: summary.session.sampleCount
+            },
+            aggregates: summary.aggregates
+          });
+        }
+
+        const json = JSON.stringify(bundle.length === 1 ? bundle[0] : bundle, null, 2);
+        const blob = new Blob([json], { type: "application/json" });
+        const filename = "tremor-summary-" +
+          (sessionIds.length === 1 ? safeFilename(sessionIds[0]) : "multi-" + sessionIds.length) + ".json";
+        await shareOrDownload(blob, filename, "application/json");
+      } catch (err) {
+        showError("export", readableError(err));
+      }
+    }
+
+    async function exportRawCsv() {
+      clearError("export");
+      if (exportSelection.size === 0) {
+        showError("export", "Select at least one session.");
+        return;
+      }
+
+      try {
+        const sessionIds = Array.from(exportSelection);
+        const csv = await buildRawCsv(sessionIds);
+        const blob = new Blob([csv], { type: "text/csv" });
+        const filename = "tremor-raw-" +
+          (sessionIds.length === 1 ? safeFilename(sessionIds[0]) : "multi-" + sessionIds.length) + ".csv";
+        await shareOrDownload(blob, filename, "text/csv");
+      } catch (err) {
+        showError("export", readableError(err));
+      }
+    }
+
+    async function buildRawCsv(sessionIds) {
+      const includeSessionId = sessionIds.length > 1;
+      const header = [
+        "phone_iso_time",
+        "phone_epoch_ms",
+        "phone_perf_ms",
+        "device_time_ms",
+        "state_code",
+        "state_name",
+        "sched_hz",
+        "tremor_hz",
+        "magnitude",
+        "stim_count"
+      ];
+      if (includeSessionId) {
+        header.unshift("session_id");
+      }
+
+      const rows = [header];
+
+      for (const sessionId of sessionIds) {
+        const samples = await idbGetAllByIndex(STORE_SAMPLES, "by_session", sessionId);
+        samples.sort((a, b) => a.phoneEpochMs - b.phoneEpochMs);
+
+        for (const s of samples) {
+          const row = [
+            new Date(s.phoneEpochMs).toISOString(),
+            s.phoneEpochMs,
+            s.phonePerfMs,
+            s.deviceTimeMs,
+            s.stateCode,
+            s.stateName,
+            s.schedHz,
+            s.tremorHz,
+            s.magnitude,
+            s.stimCount
+          ];
+          if (includeSessionId) {
+            row.unshift(sessionId);
+          }
+          rows.push(row);
+        }
+      }
+
+      return rows.map(row => row.map(csvCell).join(",")).join("\n");
+    }
+
+    function isMobileDevice() {
+      if (navigator.userAgentData && typeof navigator.userAgentData.mobile === "boolean") {
+        return navigator.userAgentData.mobile;
+      }
+      return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
+    }
+
+    async function shareOrDownload(blob, filename, mimeType) {
+      if (isMobileDevice() && navigator.canShare && navigator.share) {
+        try {
+          // Chromium's share-target file allow-list doesn't accept
+          // application/json or .json files, which makes canShare() return
+          // false; sharing as .txt/text-plain is accepted and the JSON
+          // content is unchanged, just under a .txt name on the receiving end.
+          const isJson = mimeType === "application/json";
+          const shareMimeType = isJson ? "text/plain" : mimeType;
+          const shareFilename = isJson ? filename.replace(/\.json$/i, ".txt") : filename;
+          const file = new File([blob], shareFilename, { type: shareMimeType });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file] });
+            showExportStatus("Shared " + shareFilename + ".");
+            return;
+          }
+        } catch (err) {
+          if (err && err.name === "AbortError") {
+            return;
+          }
+          // Fall through to download fallback.
+        }
+      }
+
+      downloadBlob(blob, filename);
+      showExportStatus("Downloaded " + filename + ".");
+    }
+
+    function showExportStatus(text) {
+      el.exportStatus.textContent = text;
+      el.exportStatus.classList.remove("hidden");
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // ---------------------------------------------------------------------
+    // Admin screen
+    // ---------------------------------------------------------------------
+
+    async function showAdminScreen() {
+      showScreen("admin");
+      clearError("admin");
+      adminSelection.clear();
+      await refreshStorageEstimate();
+      await refreshAdminList();
+    }
+
+    async function refreshAdminList() {
+      const sessions = await loadSessionSummaries();
+      el.adminEmpty.classList.toggle("hidden", sessions.length > 0);
+      renderSessionList(el.adminList, sessions, {
+        selectable: true,
+        initialSelection: adminSelection,
+        onChange: (sessionId, checked) => {
+          if (checked) {
+            adminSelection.add(sessionId);
+          } else {
+            adminSelection.delete(sessionId);
+          }
+        },
+        onReview: (sessionId) => showReview(sessionId)
+      });
+    }
+
+    async function refreshStorageEstimate() {
+      if (navigator.storage && navigator.storage.estimate) {
+        try {
+          const estimate = await navigator.storage.estimate();
+          const usedMb = (estimate.usage / (1024 * 1024)).toFixed(1);
+          const quotaMb = (estimate.quota / (1024 * 1024)).toFixed(0);
+          el.adminStorage.textContent = "Storage used: " + usedMb + " MB of " + quotaMb + " MB";
+        } catch (_) {
+          el.adminStorage.textContent = "";
+        }
+      } else {
+        el.adminStorage.textContent = "";
+      }
+    }
+
+    async function deleteSelectedSessions() {
+      clearError("admin");
+      if (adminSelection.size === 0) {
+        showError("admin", "Select at least one session.");
+        return;
+      }
+
+      if (!confirm("Delete " + adminSelection.size + " session(s)? This cannot be undone.")) {
+        return;
+      }
+
+      try {
+        for (const sessionId of adminSelection) {
+          await idbDeleteByIndex(STORE_SAMPLES, "by_session", sessionId);
+          await idbDeleteByIndex(STORE_AGGREGATES, "by_session", sessionId);
+          await idbDelete(STORE_SESSIONS, sessionId);
+        }
+        adminSelection.clear();
+        await refreshStorageEstimate();
+        await refreshAdminList();
+      } catch (err) {
+        showError("admin", readableError(err));
+      }
+    }
+
+    // ---------------------------------------------------------------------
+    // Display & general helpers
+    // ---------------------------------------------------------------------
+
+    function updateLiveDisplay(sample, sampleCount) {
+      el.liveState.textContent = sample.stateName;
+      el.liveState.className = "state-pill state-" + sample.stateName;
+      el.liveStimHz.textContent = sample.schedHz.toFixed(2);
+      el.liveHz.textContent = sample.tremorHz.toFixed(2);
+      el.liveMag.textContent = sample.magnitude.toFixed(1);
+      el.liveSamples.textContent = String(sampleCount);
+      el.liveStim.textContent = String(sample.stimCount);
+      el.recordingStatus.textContent = "Connected and recording";
+    }
+
+    function resetLiveDisplay() {
+      el.liveState.textContent = "--";
+      el.liveState.className = "state-pill";
+      el.liveStimHz.textContent = "--";
+      el.liveHz.textContent = "--";
+      el.liveMag.textContent = "--";
+      el.liveSamples.textContent = "0";
+      el.liveStim.textContent = "0";
+    }
+
+    function updateStartStatus(text, connected) {
+      el.startStatus.textContent = text;
+      el.startDot.classList.toggle("connected", connected);
+    }
+
+    function formatDuration(ms) {
+      if (!Number.isFinite(ms) || ms < 0) {
+        return "0 s";
+      }
+      const totalSeconds = Math.round(ms / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      if (minutes <= 0) {
+        return seconds + " s";
+      }
+      return minutes + " min " + seconds + " s";
+    }
+
+    function showError(screen, message) {
+      const target = el.errors[screen];
+      if (!target) return;
+      target.textContent = message;
+      target.classList.remove("hidden");
+    }
+
+    function clearError(screen) {
+      const target = el.errors[screen];
+      if (!target) return;
+      target.textContent = "";
+      target.classList.add("hidden");
+    }
+
+    function readableError(err) {
+      if (!err) {
+        return "Unknown error.";
+      }
+      if (err.name === "NotFoundError") {
+        return "No device was selected.";
+      }
+      if (err.name === "NotAllowedError") {
+        return "Bluetooth permission was not granted.";
+      }
+      if (err.name === "NetworkError") {
+        return "Bluetooth connection failed or was interrupted.";
+      }
+      return err.message || String(err);
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function csvCell(value) {
+      const text = String(value == null ? "" : value);
+      if (text.includes(",") || text.includes("\"") || text.includes("\n")) {
+        return "\"" + text.replace(/\"/g, "\"\"") + "\"";
+      }
+      return text;
+    }
+
+    function safeFilename(text) {
+      return String(text).replace(/[^a-z0-9-_]/gi, "_");
+    }
+
+    // ---------------------------------------------------------------------
+    // Debug simulation mode (?simulate=1)
+    // ---------------------------------------------------------------------
+
+    function enableSimulationMode() {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("simulate") !== "1") {
+        return;
+      }
+
+      el.btnSimulate.classList.remove("hidden");
+
+      const banner = document.createElement("div");
+      banner.textContent = "Simulation mode (?simulate=1) - no real device required.";
+      banner.style.background = "#fde68a";
+      banner.style.color = "#7c2d12";
+      banner.style.padding = "8px 14px";
+      banner.style.textAlign = "center";
+      banner.style.fontWeight = "700";
+      document.body.insertBefore(banner, document.body.firstChild);
+    }
+
+    async function runSimulatedSession() {
+      el.btnSimulate.disabled = true;
+      try {
+        currentSession = createSession();
+        currentSession.deviceName = "TremorStim (simulated)";
+        await idbPut(STORE_SESSIONS, currentSession);
+        isRecording = true;
+        storageErrorShown = false;
+        stimCountHistory = [];
+        currentAggregate = null;
+        resetLiveDisplay();
+        showScreen("recording");
+
+        const totalSamples = 1800;
+        let stimCount = 0;
+
+        for (let i = 0; i < totalSamples; i++) {
+          const unlocked = i < 20;
+          const t = i / 2;
+
+          const sample = {
+            deviceTimeMs: Math.round(t * 1000),
+            stateCode: unlocked ? 0 : 2,
+            stateName: unlocked ? STATE_NAMES[0] : STATE_NAMES[2],
+            schedHz: 5,
+            tremorHz: unlocked ? 0 : Math.max(0.1, 4 + Math.sin(t / 20) * 1.5),
+            magnitude: 10 + Math.sin(t / 15) * 4 + Math.random(),
+            stimCount: unlocked ? 0 : ++stimCount
+          };
+
+          sample.phoneEpochMs = currentSession.startedAtEpochMs + i * 500;
+          sample.phonePerfMs = performance.now();
+
+          processSampleForRecording(sample);
+          updateLiveDisplay(sample, currentSession.sampleCount);
+        }
+
+        currentSession.stoppedAtEpochMs = currentSession.startedAtEpochMs + totalSamples * 500;
+        isRecording = false;
+        await flushAggregate();
+        await idbPut(STORE_SESSIONS, currentSession);
+        el.savedSummary.textContent = await makeSavedSummary(currentSession);
+        showScreen("saved");
+      } finally {
+        el.btnSimulate.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>

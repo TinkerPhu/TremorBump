@@ -1,0 +1,5 @@
+CircuitPython/boot_out.txt
+CircuitPython/.fseventsd/no_log
+CircuitPython/sd/placeholder.txt
+
+**/*.pyc
