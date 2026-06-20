@@ -48,7 +48,11 @@ TremorBump/
 │   ├── settings.toml
 │   └── lib/                # Required CircuitPython libraries
 ├── CompanionApp/
-│   └── tremor_recorder.html
+│   ├── tremor_recorder.html
+│   ├── manifest.json       # PWA manifest
+│   ├── sw.js               # Service worker (offline cache)
+│   ├── icon-192.png
+│   └── icon-512.png
 └── docs/
     ├── References.md
     └── conductive_electrode_gel_recipe.md
@@ -170,6 +174,32 @@ at 2 Hz (`BLE_NOTIFY_HZ`):
 
 The ESP-IDF BLE stack runs as a background FreeRTOS task, so the connection
 stays alive even during the brief (~30 ms) blocking stimulation bursts.
+
+## Hosting the web app (GitHub Pages + PWA)
+
+The companion app is a fully static single-file app and can be hosted for
+free on GitHub Pages.
+
+### Enable GitHub Pages
+
+1. Go to your repo on GitHub → **Settings** → **Pages**.
+2. Source: **Deploy from a branch** → `main` → `/ (root)` → **Save**.
+3. After a minute the app will be live at:
+   `https://<your-username>.github.io/<repo-name>/CompanionApp/tremor_recorder.html`
+
+GitHub Pages serves over HTTPS, which is required for both Web Bluetooth and
+PWA installation.
+
+### Install as a mobile app (Android)
+
+Open the URL above in **Chrome on Android**, then tap the browser menu →
+**Add to Home screen**. The app installs as a standalone icon with no browser
+chrome, caches itself for offline use, and connects to the device over BLE
+exactly as in the browser.
+
+> **iOS note:** Web Bluetooth is not supported on iOS (Safari or Chrome on
+> iPhone/iPad). The app can be added to the home screen on iOS but will not
+> be able to connect to the device.
 
 ## Tremor Recorder web app (`tremor_recorder.html`)
 

@@ -4,6 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Tremor Recorder</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1f2937">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="TremorRec">
   <style>
     :root {
       --bg: #f6f7f9;
@@ -550,6 +555,10 @@
 
   <script>
     "use strict";
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("./sw.js");
+    }
 
     const SERVICE_UUID = "7f6d0001-6f7a-4f4e-9a8b-3b7f4b000001";
     const TELEMETRY_UUID = "7f6d0002-6f7a-4f4e-9a8b-3b7f4b000001";
