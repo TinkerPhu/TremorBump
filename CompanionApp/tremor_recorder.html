@@ -369,6 +369,51 @@
         grid-template-columns: 1fr 1fr;
       }
     }
+
+    .help-content h3 {
+      font-size: 1.25rem;
+      margin: 24px 0 8px;
+    }
+
+    .help-content h4 {
+      font-size: 1.05rem;
+      margin: 16px 0 6px;
+    }
+
+    .help-content p,
+    .help-content li {
+      line-height: 1.6;
+    }
+
+    .help-content ul {
+      padding-left: 20px;
+    }
+
+    .help-content img {
+      width: 100%;
+      border-radius: 14px;
+      margin: 16px 0;
+    }
+
+    .help-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 18px;
+      font-size: 0.95rem;
+    }
+
+    .help-table th,
+    .help-table td {
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    .help-table th {
+      background: #f3f4f6;
+      font-weight: 700;
+    }
   </style>
 </head>
 <body>
@@ -389,6 +434,7 @@
       </div>
       <div class="card">
         <div class="button-row">
+          <button id="btn-go-help" class="secondary">Help</button>
           <button id="btn-go-export" class="secondary">Export</button>
           <button id="btn-go-admin" class="secondary">Admin</button>
           <button id="btn-go-config" class="secondary">Settings</button>
@@ -537,6 +583,74 @@
       </div>
     </section>
 
+    <section id="screen-help" class="screen hidden">
+      <div class="card">
+        <h1>Electrode Placement</h1>
+        <div class="help-content">
+          <p>This guide details the placement of surface electrodes for <strong>Sensory Electrical Stimulation (SES)</strong> to manage Essential Tremor (ET). This therapy uses low-level current to target the sensory pathways leading to the brain's tremor control centers (thalamus and cerebellum).</p>
+
+          <h3>Safety &amp; Expectations</h3>
+          <ul>
+            <li><strong>The Goal:</strong> You should feel a <strong>"strong but comfortable" tingling or tickling</strong> sensation.</li>
+            <li><strong>The Limit:</strong> Do <strong>NOT</strong> increase the power until the muscles twitch or the hand moves involuntarily. This is the <strong>Motor Threshold (MT)</strong>; SES must remain <strong>sub-motor</strong> (below that level).</li>
+            <li><strong>Skin Care:</strong> Apply electrodes only to healthy, intact skin. Do <strong>not</strong> place them over rashes, sores, or areas with "razor burn" from shaving.</li>
+            <li><strong>Warning:</strong> <strong>Never</strong> place electrodes across the chest, near the heart, or on the front of the neck.</li>
+          </ul>
+
+          <h3>Configuration A: 2-Electrode Setup (Single Channel)</h3>
+          <p><em>Best for simple setups targeting a specific nerve branch to disrupt the tremor signal.</em></p>
+          <table class="help-table">
+            <thead><tr><th>Step</th><th>Patient Instructions</th><th>Clinical Notes</th></tr></thead>
+            <tbody>
+              <tr><td><strong>1. Target</strong></td><td>Focus on the <strong>outer edge of your wrist</strong>, on the same side as your thumb.</td><td>Target the <strong>superficial branch of the radial nerve</strong> at the lateral aspect of the wrist.</td></tr>
+              <tr><td><strong>2. Placement</strong></td><td>Place the two small round stickers about one inch apart along the bone on the thumb-side of your wrist.</td><td>Apply a pair of <strong>0.8-inch circular electrodes</strong> longitudinally over the radial nerve path near the styloid process.</td></tr>
+              <tr><td><strong>3. Testing</strong></td><td>Turn on the device slowly. You should feel tingling on the <strong>back of your hand and your thumb</strong>.</td><td>Confirm placement via <strong>sensory mapping</strong>; stimulus should correspond to the radial nerve's cutaneous distribution.</td></tr>
+            </tbody>
+          </table>
+
+          <h3>Configuration B: 4-Electrode Setup (Dual Channel)</h3>
+          <p><em>The "Gold Standard" for fully jamming the tremor circuit by targeting both the "top" and "bottom" muscle groups of the arm.</em></p>
+
+          <img src="../docs/electrode_placement.png" alt="Electrode placement diagram showing the 4-electrode dual-channel setup on the forearm and wrist" />
+
+          <h4>Pair 1: The Inner Side (Channel 1 – Flexors)</h4>
+          <table class="help-table">
+            <thead><tr><th>Location</th><th>Patient Instructions</th><th>Clinical Notes</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Wrist</strong></td><td>Place one sticker in the <strong>center of your inner wrist</strong>, where you would feel a pulse.</td><td>Place electrode over the <strong>median nerve</strong> at the volar aspect of the wrist.</td></tr>
+              <tr><td><strong>Forearm</strong></td><td>Place the second sticker on your inner forearm, <strong>four fingerbreadths</strong> down from the crease of your elbow.</td><td>Position electrode over the <strong>Flexor Carpi Radialis (FCR) motor point</strong>, distal to the bicep tendon.</td></tr>
+            </tbody>
+          </table>
+
+          <h4>Pair 2: The Outer Side (Channel 2 – Extensors)</h4>
+          <table class="help-table">
+            <thead><tr><th>Location</th><th>Patient Instructions</th><th>Clinical Notes</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Wrist</strong></td><td>Place one sticker on the <strong>back of your wrist</strong>, on the outer thumb-side edge.</td><td>Place electrode over the <strong>radial nerve</strong> branch at the posterior/lateral wrist.</td></tr>
+              <tr><td><strong>Forearm</strong></td><td>Place the second sticker on the top of your forearm, <strong>two fingerbreadths</strong> down from the outer "funny bone" of your elbow.</td><td>Position electrode over the <strong>Extensor Carpi Radialis (ECR) motor point</strong>, distal to the lateral epicondyle.</td></tr>
+            </tbody>
+          </table>
+
+          <h3>Pairing and Connection Logic</h3>
+          <p>Connect the electrodes <strong>Inner-to-Inner</strong> and <strong>Outer-to-Outer</strong>:</p>
+          <ul>
+            <li><strong>Channel 1 (Inner Circuit):</strong> Connect the two wires from the first plug to the two electrodes on the <strong>palm-side</strong> (Inner Wrist + Inner Forearm). This manages the "downward" flexing motion.</li>
+            <li><strong>Channel 2 (Outer Circuit):</strong> Connect the two wires from the second plug to the two electrodes on the <strong>back-side</strong> (Outer Wrist + Outer Forearm). This manages the "upward" extending motion.</li>
+          </ul>
+
+          <h3>Final Verification</h3>
+          <ul>
+            <li><strong>Syncing:</strong> If using a device like <strong>OpenXstim</strong>, the device will alternate between these two pairs.</li>
+            <li><strong>Sensation:</strong> Ensure both channels provide a comfortable "pins and needles" feeling without causing the fingers to curl or the wrist to jump.</li>
+            <li><strong>Duration:</strong> Standard sessions last <strong>20 to 40 minutes</strong>, often providing relief that lasts for an hour or more after the session ends.</li>
+          </ul>
+        </div>
+        <div class="button-row">
+          <button id="btn-help-back" class="secondary">Back</button>
+        </div>
+      </div>
+    </section>
+
     <section id="screen-admin" class="screen hidden">
       <div class="card">
         <h1>Admin</h1>
@@ -625,11 +739,14 @@
         sessions: document.getElementById("screen-sessions"),
         config: document.getElementById("screen-config"),
         export: document.getElementById("screen-export"),
+        help: document.getElementById("screen-help"),
         admin: document.getElementById("screen-admin")
       };
 
       el.btnStart = document.getElementById("btn-start");
       el.btnGoSessions = document.getElementById("btn-go-sessions");
+      el.btnGoHelp = document.getElementById("btn-go-help");
+      el.btnHelpBack = document.getElementById("btn-help-back");
       el.btnGoExport = document.getElementById("btn-go-export");
       el.btnGoAdmin = document.getElementById("btn-go-admin");
       el.btnGoConfig = document.getElementById("btn-go-config");
@@ -702,6 +819,8 @@
     function bindEvents() {
       el.btnStart.addEventListener("click", startRecording);
       el.btnGoSessions.addEventListener("click", showSessionsScreen);
+      el.btnGoHelp.addEventListener("click", () => showScreen("help"));
+      el.btnHelpBack.addEventListener("click", () => showScreen("start"));
       el.btnGoExport.addEventListener("click", () => showExportScreen());
       el.btnGoAdmin.addEventListener("click", showAdminScreen);
       el.btnGoConfig.addEventListener("click", showConfigScreen);
