@@ -661,42 +661,47 @@
 
           <img src="2_electrodes_placement.png" alt="2-electrode placement on the radial nerve path along the palm-side forearm" />
 
-          <h3>Configuration B: 4-Electrode Setup (Dual Channel)</h3>
-          <p><em>The "Gold Standard" for fully jamming the tremor circuit by targeting both the "top" and "bottom" muscle groups of the arm.</em></p>
+          <h3 style="text-decoration:line-through;">Configuration B: 4-Electrode Setup (Dual Channel)</h3>
+          <div class="error" style="text-decoration:none;">
+            ⚠ <strong>Not yet implemented — hardware limitation:</strong> Configuration B requires two independent H-bridge circuits so that the inner pair (Channel 1 – Flexors) and outer pair (Channel 2 – Extensors) can fire with a 180° phase offset from each other. The current TremorBump hardware has a single H-bridge. A second H-bridge must be added before this configuration can be used.
+          </div>
+          <div style="text-decoration:line-through; opacity:0.5;">
+            <p><em>The "Gold Standard" for fully jamming the tremor circuit by targeting both the "top" and "bottom" muscle groups of the arm.</em></p>
 
-          <img src="4_electrodes_placement.png" alt="4-electrode dual-channel placement showing inner and outer pairs on both forearms" />
+            <img src="4_electrodes_placement.png" alt="4-electrode dual-channel placement showing inner and outer pairs on both forearms" />
 
-          <h4>Pair 1: The Inner Side (Channel 1 – Flexors)</h4>
-          <table class="help-table">
-            <thead><tr><th>Location</th><th>Patient Instructions</th><th>Clinical Notes</th></tr></thead>
-            <tbody>
-              <tr><td><strong>Wrist</strong></td><td>Place one sticker in the <strong>center of your inner wrist</strong>, where you would feel a pulse.</td><td>Place electrode over the <strong>median nerve</strong> at the volar aspect of the wrist.</td></tr>
-              <tr><td><strong>Forearm</strong></td><td>Place the second sticker on your inner forearm, <strong>four fingerbreadths</strong> down from the crease of your elbow.</td><td>Position electrode over the <strong>Flexor Carpi Radialis (FCR) motor point</strong>, distal to the bicep tendon.</td></tr>
-            </tbody>
-          </table>
+            <h4>Pair 1: The Inner Side (Channel 1 – Flexors)</h4>
+            <table class="help-table">
+              <thead><tr><th>Location</th><th>Patient Instructions</th><th>Clinical Notes</th></tr></thead>
+              <tbody>
+                <tr><td><strong>Wrist</strong></td><td>Place one sticker in the <strong>center of your inner wrist</strong>, where you would feel a pulse.</td><td>Place electrode over the <strong>median nerve</strong> at the volar aspect of the wrist.</td></tr>
+                <tr><td><strong>Forearm</strong></td><td>Place the second sticker on your inner forearm, <strong>four fingerbreadths</strong> down from the crease of your elbow.</td><td>Position electrode over the <strong>Flexor Carpi Radialis (FCR) motor point</strong>, distal to the bicep tendon.</td></tr>
+              </tbody>
+            </table>
 
-          <h4>Pair 2: The Outer Side (Channel 2 – Extensors)</h4>
-          <table class="help-table">
-            <thead><tr><th>Location</th><th>Patient Instructions</th><th>Clinical Notes</th></tr></thead>
-            <tbody>
-              <tr><td><strong>Wrist</strong></td><td>Place one sticker on the <strong>back of your wrist</strong>, on the outer thumb-side edge.</td><td>Place electrode over the <strong>radial nerve</strong> branch at the posterior/lateral wrist.</td></tr>
-              <tr><td><strong>Forearm</strong></td><td>Place the second sticker on the top of your forearm, <strong>two fingerbreadths</strong> down from the outer "funny bone" of your elbow.</td><td>Position electrode over the <strong>Extensor Carpi Radialis (ECR) motor point</strong>, distal to the lateral epicondyle.</td></tr>
-            </tbody>
-          </table>
+            <h4>Pair 2: The Outer Side (Channel 2 – Extensors)</h4>
+            <table class="help-table">
+              <thead><tr><th>Location</th><th>Patient Instructions</th><th>Clinical Notes</th></tr></thead>
+              <tbody>
+                <tr><td><strong>Wrist</strong></td><td>Place one sticker on the <strong>back of your wrist</strong>, on the outer thumb-side edge.</td><td>Place electrode over the <strong>radial nerve</strong> branch at the posterior/lateral wrist.</td></tr>
+                <tr><td><strong>Forearm</strong></td><td>Place the second sticker on the top of your forearm, <strong>two fingerbreadths</strong> down from the outer "funny bone" of your elbow.</td><td>Position electrode over the <strong>Extensor Carpi Radialis (ECR) motor point</strong>, distal to the lateral epicondyle.</td></tr>
+              </tbody>
+            </table>
 
-          <h3>Pairing and Connection Logic</h3>
-          <p>Connect the electrodes <strong>Inner-to-Inner</strong> and <strong>Outer-to-Outer</strong>:</p>
-          <ul>
-            <li><strong>Channel 1 (Inner Circuit):</strong> Connect the two wires from the first plug to the two electrodes on the <strong>palm-side</strong> (Inner Wrist + Inner Forearm). This manages the "downward" flexing motion.</li>
-            <li><strong>Channel 2 (Outer Circuit):</strong> Connect the two wires from the second plug to the two electrodes on the <strong>back-side</strong> (Outer Wrist + Outer Forearm). This manages the "upward" extending motion.</li>
-          </ul>
+            <h3>Pairing and Connection Logic</h3>
+            <p>Connect the electrodes <strong>Inner-to-Inner</strong> and <strong>Outer-to-Outer</strong>:</p>
+            <ul>
+              <li><strong>Channel 1 (Inner Circuit):</strong> Connect the two wires from the first plug to the two electrodes on the <strong>palm-side</strong> (Inner Wrist + Inner Forearm). This manages the "downward" flexing motion.</li>
+              <li><strong>Channel 2 (Outer Circuit):</strong> Connect the two wires from the second plug to the two electrodes on the <strong>back-side</strong> (Outer Wrist + Outer Forearm). This manages the "upward" extending motion.</li>
+            </ul>
 
-          <h3>Final Verification</h3>
-          <ul>
-            <li><strong>Syncing:</strong> If using a device like <strong>OpenXstim</strong>, the device will alternate between these two pairs.</li>
-            <li><strong>Sensation:</strong> Ensure both channels provide a comfortable "pins and needles" feeling without causing the fingers to curl or the wrist to jump.</li>
-            <li><strong>Duration:</strong> Standard sessions last <strong>20 to 40 minutes</strong>, often providing relief that lasts for an hour or more after the session ends.</li>
-          </ul>
+            <h3>Final Verification</h3>
+            <ul>
+              <li><strong>Syncing:</strong> If using a device like <strong>OpenXstim</strong>, the device will alternate between these two pairs.</li>
+              <li><strong>Sensation:</strong> Ensure both channels provide a comfortable "pins and needles" feeling without causing the fingers to curl or the wrist to jump.</li>
+              <li><strong>Duration:</strong> Standard sessions last <strong>20 to 40 minutes</strong>, often providing relief that lasts for an hour or more after the session ends.</li>
+            </ul>
+          </div>
         </div>
         <div class="button-row">
           <button id="btn-help-back" class="secondary">Back</button>
@@ -743,7 +748,7 @@
       navigator.serviceWorker.register("./sw.js");
     }
 
-    const APP_VERSION = "v0.1-alpha.9";
+    const APP_VERSION = "v0.1-alpha.10";
 
     const SERVICE_UUID = "7f6d0001-6f7a-4f4e-9a8b-3b7f4b000001";
     const TELEMETRY_UUID = "7f6d0002-6f7a-4f4e-9a8b-3b7f4b000001";

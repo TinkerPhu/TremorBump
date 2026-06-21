@@ -23,7 +23,12 @@ This instruction manual details the placement of surface electrodes for **Sensor
 
 ---
 
-### **Configuration B: 4-Electrode Setup (Dual Channel)**
+### ~~**Configuration B: 4-Electrode Setup (Dual Channel)**~~
+
+> ⚠ **Not yet implemented — hardware limitation:** Configuration B requires two independent H-bridge circuits so that the inner electrode pair (Channel 1 – Flexors) and outer electrode pair (Channel 2 – Extensors) can fire with a 180° phase offset from each other. The current TremorBump hardware has a single H-bridge. A second H-bridge must be added to the design before this configuration can be used.
+
+<s>
+
 *The "Gold Standard" for fully jamming the tremor circuit by targeting both the "top" and "bottom" muscle groups of the arm.*
 
 #### **Pair 1: The Inner Side (Channel 1 - Flexors)**
@@ -40,8 +45,6 @@ This instruction manual details the placement of surface electrodes for **Sensor
 
 ![4-electrode dual-channel placement showing inner and outer pairs on both forearms](../CompanionApp/4_electrodes_placement.png)
 
----
-
 ### **Pairing and Connection Logic**
 To ensure the electrical circuit works correctly, you must pair the electrodes **Inner-to-Inner** and **Outer-to-Outer**:
 
@@ -53,3 +56,5 @@ Once connected:
 1.  **Syncing:** If using a device like **OpenXstim**, the device will alternate between these two pairs.
 2.  **Sensation:** Ensure both channels provide a comfortable "pins and needles" feeling without causing the fingers to curl or the wrist to jump.
 3.  **Duration:** Standard sessions last **20 to 40 minutes**, often providing relief that lasts for an hour or more after the session ends.
+
+</s>
