@@ -72,7 +72,6 @@ TremorBump/
     ├── References.md
     ├── SES_Overview.md
     ├── SES_Clinical_Reference.md
-    ├── Definition_SES.md
     └── conductive_electrode_gel_recipe.md
 ```
 
