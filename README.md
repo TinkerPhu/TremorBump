@@ -17,6 +17,10 @@ exporting telemetry from the device over Bluetooth Low Energy (BLE).
 
 See [`docs/References.md`](docs/References.md) for more sources.
 
+## AI-generated content
+
+Most of the code and documents in this project are AI-generated, based on the references listed in [`docs/References.md`](docs/References.md).
+
 ## Background and motivation
 
 The author of this project has **no medical background**. The motivation is personal: helping family members who suffer from Essential Tremor. The project is an attempt to understand the condition and build a practical, low-cost tool to explore phase-locked SES as a self-administered therapy.
