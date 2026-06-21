@@ -618,6 +618,7 @@
         <div class="help-content">
           <p><strong>TremorBump</strong> is an open-source DIY project for phase-locked sensory electrical stimulation (SES) as a self-administered therapy for Essential Tremor.</p>
           <p>Most of the code and documentation in this project are AI-generated, based on the references in <code>docs/References.md</code>.</p>
+          <p id="about-version" style="font-size:0.9rem; color:var(--muted);"></p>
           <h3>Author</h3>
           <p><strong>TinkerPHU</strong><br>
           <a href="https://github.com/TinkerPhu/TremorBump" target="_blank" rel="noopener">github.com/TinkerPhu/TremorBump</a></p>
@@ -723,6 +724,8 @@
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("./sw.js");
     }
+
+    const APP_VERSION = "v0.1-alpha.6";
 
     const SERVICE_UUID = "7f6d0001-6f7a-4f4e-9a8b-3b7f4b000001";
     const TELEMETRY_UUID = "7f6d0002-6f7a-4f4e-9a8b-3b7f4b000001";
@@ -874,7 +877,10 @@
       el.btnGoSessions.addEventListener("click", showSessionsScreen);
       el.btnGoHelp.addEventListener("click", () => showScreen("help"));
       el.btnHelpBack.addEventListener("click", () => showScreen("start"));
-      el.btnGoAbout.addEventListener("click", () => showScreen("about"));
+      el.btnGoAbout.addEventListener("click", () => {
+        document.getElementById("about-version").textContent = APP_VERSION;
+        showScreen("about");
+      });
       el.btnAboutBack.addEventListener("click", () => showScreen("start"));
       el.btnGoExport.addEventListener("click", () => showExportScreen());
       el.btnGoAdmin.addEventListener("click", showAdminScreen);
