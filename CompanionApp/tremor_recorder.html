@@ -64,6 +64,20 @@
       font-size: clamp(1.4rem, 6vw, 2.2rem);
     }
 
+    .wordmark {
+      width: 100%;
+      max-width: 340px;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .wordmark-center {
+      width: 100%;
+      max-width: 300px;
+      display: block;
+      margin: 0 auto 20px;
+    }
+
     h2 {
       font-size: 1.6rem;
     }
@@ -424,7 +438,8 @@
   <main class="app">
     <section id="screen-start" class="screen">
       <div class="card primary-screen">
-        <h1>TremorBump Recorder</h1>
+        <img src="TremorBumpWordmark.png" alt="TremorBump" class="wordmark" />
+        <h1>Recorder</h1>
         <p class="muted">Connect to the TremorStim device and record live telemetry on this computer.</p>
         <div class="status-line">
           <span id="start-dot" class="dot"></span>
@@ -439,10 +454,10 @@
       <div class="card">
         <div class="button-row">
           <button id="btn-go-help" class="secondary">Help</button>
-          <button id="btn-go-about" class="secondary">About</button>
           <button id="btn-go-export" class="secondary">Export</button>
           <button id="btn-go-admin" class="secondary">Admin</button>
           <button id="btn-go-config" class="secondary">Settings</button>
+          <button id="btn-go-about" class="secondary">About</button>
           <button id="btn-simulate" class="secondary hidden">Run simulated session</button>
         </div>
       </div>
@@ -590,6 +605,7 @@
 
     <section id="screen-about" class="screen hidden">
       <div class="card">
+        <img src="TremorBumpWordmark.png" alt="TremorBump" class="wordmark-center" />
         <h1>About</h1>
         <div class="help-content">
           <p><strong>TremorBump</strong> is an open-source DIY project for phase-locked sensory electrical stimulation (SES) as a self-administered therapy for Essential Tremor.</p>
@@ -610,6 +626,7 @@
 
     <section id="screen-help" class="screen hidden">
       <div class="card">
+        <img src="TremorBumpWordmark.png" alt="TremorBump" class="wordmark-center" />
         <h1>Electrode Placement</h1>
         <div class="help-content">
           <p>This guide details the placement of surface electrodes for <strong>Sensory Electrical Stimulation (SES)</strong> to manage Essential Tremor (ET). This therapy uses low-level current to target the sensory pathways leading to the brain's tremor control centers (thalamus and cerebellum).</p>
