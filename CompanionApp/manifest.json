@@ -1,6 +1,6 @@
 {
-  "name": "Tremor Recorder",
-  "short_name": "TremorRec",
+  "name": "TremorBump Recorder",
+  "short_name": "TremorBump",
   "description": "BLE telemetry recorder for the TremorBump stimulation device",
   "start_url": "./tremor_recorder.html",
   "display": "standalone",
