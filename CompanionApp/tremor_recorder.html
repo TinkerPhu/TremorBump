@@ -439,6 +439,7 @@
       <div class="card">
         <div class="button-row">
           <button id="btn-go-help" class="secondary">Help</button>
+          <button id="btn-go-about" class="secondary">About</button>
           <button id="btn-go-export" class="secondary">Export</button>
           <button id="btn-go-admin" class="secondary">Admin</button>
           <button id="btn-go-config" class="secondary">Settings</button>
@@ -584,6 +585,26 @@
         </div>
         <div id="export-status" class="muted hidden"></div>
         <div id="export-error" class="error hidden"></div>
+      </div>
+    </section>
+
+    <section id="screen-about" class="screen hidden">
+      <div class="card">
+        <h1>About</h1>
+        <div class="help-content">
+          <p><strong>TremorBump</strong> is an open-source DIY project for phase-locked sensory electrical stimulation (SES) as a self-administered therapy for Essential Tremor.</p>
+          <p>Most of the code and documentation in this project are AI-generated, based on the references in <code>docs/References.md</code>.</p>
+          <h3>Author</h3>
+          <p><strong>TinkerPHU</strong><br>
+          <a href="https://github.com/TinkerPhu/TremorBump" target="_blank" rel="noopener">github.com/TinkerPhu/TremorBump</a></p>
+          <h3>License</h3>
+          <p>Released under the <strong>MIT License</strong>. You are free to use, modify, and share this project with attribution.</p>
+          <h3>Disclaimer</h3>
+          <p>This is experimental hardware and software. Nothing here constitutes medical advice. Use at your own risk and consult a qualified healthcare professional before using any electrical stimulation device.</p>
+        </div>
+        <div class="button-row">
+          <button id="btn-about-back" class="secondary">Back</button>
+        </div>
       </div>
     </section>
 
@@ -744,6 +765,7 @@
         config: document.getElementById("screen-config"),
         export: document.getElementById("screen-export"),
         help: document.getElementById("screen-help"),
+        about: document.getElementById("screen-about"),
         admin: document.getElementById("screen-admin")
       };
 
@@ -751,6 +773,8 @@
       el.btnGoSessions = document.getElementById("btn-go-sessions");
       el.btnGoHelp = document.getElementById("btn-go-help");
       el.btnHelpBack = document.getElementById("btn-help-back");
+      el.btnGoAbout = document.getElementById("btn-go-about");
+      el.btnAboutBack = document.getElementById("btn-about-back");
       el.btnGoExport = document.getElementById("btn-go-export");
       el.btnGoAdmin = document.getElementById("btn-go-admin");
       el.btnGoConfig = document.getElementById("btn-go-config");
@@ -825,6 +849,8 @@
       el.btnGoSessions.addEventListener("click", showSessionsScreen);
       el.btnGoHelp.addEventListener("click", () => showScreen("help"));
       el.btnHelpBack.addEventListener("click", () => showScreen("start"));
+      el.btnGoAbout.addEventListener("click", () => showScreen("about"));
+      el.btnAboutBack.addEventListener("click", () => showScreen("start"));
       el.btnGoExport.addEventListener("click", () => showExportScreen());
       el.btnGoAdmin.addEventListener("click", showAdminScreen);
       el.btnGoConfig.addEventListener("click", showConfigScreen);
