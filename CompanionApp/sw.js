@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE = "tremor-recorder-v8";
+const CACHE = "tremor-recorder-v9";
 const ASSETS = [
   "./tremor_recorder.html",
   "./manifest.json",

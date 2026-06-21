@@ -19,6 +19,8 @@ This instruction manual details the placement of surface electrodes for **Sensor
 | **2. Placement** | Place the two small round stickers about one inch apart along the bone on the thumb-side of your wrist. | Apply a pair of **0.8-inch circular electrodes** longitudinally over the radial nerve path near the styloid process. |
 | **3. Testing** | Turn on the device slowly. You should feel tingling on the **back of your hand and your thumb**. | Confirm placement via **sensory mapping**; stimulus should correspond to the radial nerve's cutaneous distribution. |
 
+![2-electrode placement on the radial nerve path along the palm-side forearm](../CompanionApp/2_electrodes_placement.png)
+
 ---
 
 ### **Configuration B: 4-Electrode Setup (Dual Channel)**
@@ -36,7 +38,7 @@ This instruction manual details the placement of surface electrodes for **Sensor
 | **Wrist** | Place one sticker on the **back of your wrist**, on the outer thumb-side edge. | Place electrode over the **radial nerve** branch at the posterior/lateral wrist. |
 | **Forearm** | Place the second sticker on the top of your forearm, **two fingerbreadths** down from the outer "funny bone" of your elbow. | Position electrode over the **Extensor Carpi Radialis (ECR) motor point**, distal to the lateral epicondyle. |
 
-![Electrode placement diagram showing the 4-electrode dual-channel setup on the forearm and wrist](../CompanionApp/electrode_placement.png)
+![4-electrode dual-channel placement showing inner and outer pairs on both forearms](../CompanionApp/4_electrodes_placement.png)
 
 ---
 
