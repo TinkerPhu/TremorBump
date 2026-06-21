@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>TremorBump Recorder</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1f2937">
@@ -40,6 +40,8 @@
       width: min(720px, 100%);
       margin: 0 auto;
       padding: 20px;
+      padding-top: max(20px, env(safe-area-inset-top));
+      padding-bottom: max(20px, env(safe-area-inset-bottom));
     }
 
     .card {
@@ -195,7 +197,7 @@
     .card.primary-screen {
       display: flex;
       flex-direction: column;
-      min-height: calc(100dvh - 72px);
+      min-height: calc(100dvh - 72px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
     }
 
     .metrics-hero {
