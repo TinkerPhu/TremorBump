@@ -15,8 +15,18 @@ exporting telemetry from the device over Bluetooth Low Energy (BLE).
 - **[DIY Transcutaneous Spinal Stimulator Guide](https://www.scribd.com/document/766706842/An-easy-to-build-transcutaneous-electrical-stimulator-for-spinal-cord-stimulation-therapy)**
 - **[OpenVstim](https://github.com/MonzurulAlam/OpenVstim)**
 
-See docs\References.md for more sources.
+See [`docs/References.md`](docs/References.md) for more sources.
 
+## Background and motivation
+
+The author of this project has **no medical background**. The motivation is personal: helping family members who suffer from Essential Tremor. The project is an attempt to understand the condition and build a practical, low-cost tool to explore phase-locked SES as a self-administered therapy.
+
+The clinical background documents in `docs/` were compiled with the help of **[NotebookLM](https://notebooklm.google.com/)**, using the references listed in `docs/References.md` as source material. They represent a best-effort synthesis of the available literature — not medical advice.
+
+- [`docs/SES_Overview.md`](docs/SES_Overview.md) — plain-language introduction: what SES is, how it works, expected sensation, and efficacy overview.
+- [`docs/SES_Clinical_Reference.md`](docs/SES_Clinical_Reference.md) — full technical reference: neurophysiology, fiber targets, electrode placement, stimulation parameters, clinical protocol, and outcome data.
+
+> **None of this constitutes medical advice.** Consult a qualified healthcare professional before using any electrical stimulation device.
 
 **It consists of four parts:**
 
@@ -53,8 +63,16 @@ TremorBump/
 │   ├── sw.js               # Service worker (offline cache)
 │   ├── icon-192.png
 │   └── icon-512.png
+├── hardware/
+│   ├── BOM.md              # Bill of materials
+│   ├── TremorBumpBox.stl   # Main enclosure
+│   ├── TremorBumpCog.stl
+│   └── TremorBumpSensorBox.stl
 └── docs/
     ├── References.md
+    ├── SES_Overview.md
+    ├── SES_Clinical_Reference.md
+    ├── Definition_SES.md
     └── conductive_electrode_gel_recipe.md
 ```
 
