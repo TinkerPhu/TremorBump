@@ -1,3 +1,5 @@
+![TremorBump](CompanionApp/TremorBumpWordmark.png)
+
 # Tremor-Synchronized Stimulation Project
 
 
