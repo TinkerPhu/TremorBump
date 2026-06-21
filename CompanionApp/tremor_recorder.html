@@ -195,7 +195,7 @@
     .card.primary-screen {
       display: flex;
       flex-direction: column;
-      min-height: calc(100vh - 72px);
+      min-height: calc(100dvh - 72px);
     }
 
     .metrics-hero {
@@ -896,6 +896,9 @@
     function showScreen(name) {
       for (const key of Object.keys(el.screens)) {
         el.screens[key].classList.toggle("hidden", key !== name);
+      }
+      if (name === "start") {
+        clearError("start");
       }
     }
 
