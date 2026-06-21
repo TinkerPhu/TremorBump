@@ -7,6 +7,8 @@
 > ⚠ **This device applies up to 40 V electrical stimulation to the human body.
 > Read [SAFETY.md](SAFETY.md) before building or using it.**
 
+**[Open Companion App](https://tinkerphu.github.io/TremorBump/CompanionApp/tremor_recorder.html)**
+
 This project implements a wearable device that detects hand/arm tremor in
 real time and delivers phase-locked electrical stimulation in sync with the
 tremor cycle, plus a companion web app for recording, reviewing, and
