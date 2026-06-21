@@ -202,8 +202,23 @@
     .card.primary-screen {
       display: flex;
       flex-direction: column;
-      height: calc(100dvh - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
-      overflow: hidden;
+      height: calc(var(--app-height, 100dvh) - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+      overflow: visible;
+      outline: 3px solid red;
+    }
+
+    #debug-overlay {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0,0,0,0.85);
+      color: #0f0;
+      font-family: monospace;
+      font-size: 12px;
+      padding: 6px 10px;
+      z-index: 9999;
+      line-height: 1.6;
     }
 
     .metrics-hero {
@@ -718,14 +733,58 @@
     </section>
   </main>
 
+  <div id="debug-overlay">loading…</div>
+
   <script>
     "use strict";
+
+    // Lock viewport height on load; ignore small changes caused by
+    // Chrome's address bar collapsing (~60px). Only update on real
+    // changes like orientation flip (>150px).
+    let lockedHeight = window.innerHeight;
+    function applyLockedHeight() {
+      document.documentElement.style.setProperty("--app-height", lockedHeight + "px");
+    }
+    applyLockedHeight();
+    window.addEventListener("resize", () => {
+      const h = window.innerHeight;
+      if (Math.abs(h - lockedHeight) > 150) {
+        lockedHeight = h;
+        applyLockedHeight();
+      }
+      updateDebug();
+    });
+
+    // Measure CSS viewport units via a probe element
+    function measureCssUnit(unit) {
+      const el = document.createElement("div");
+      el.style.cssText = "position:fixed;top:0;left:0;width:1px;height:" + unit + ";visibility:hidden;pointer-events:none";
+      document.body.appendChild(el);
+      const h = el.getBoundingClientRect().height;
+      document.body.removeChild(el);
+      return Math.round(h);
+    }
+
+    function updateDebug() {
+      const card = document.querySelector(".card.primary-screen:not(.hidden)") ||
+                   document.querySelector(".card.primary-screen");
+      const cardH = card ? Math.round(card.getBoundingClientRect().height) : "?";
+      const dvh = measureCssUnit("100dvh");
+      const svh = measureCssUnit("100svh");
+      const vh  = measureCssUnit("100vh");
+      document.getElementById("debug-overlay").innerHTML =
+        "innerH=" + window.innerHeight +
+        "  locked=" + lockedHeight +
+        "  --app-height=" + getComputedStyle(document.documentElement).getPropertyValue("--app-height").trim() +
+        "<br>100dvh=" + dvh + "  100svh=" + svh + "  100vh=" + vh +
+        "  cardH=" + cardH;
+    }
 
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("./sw.js");
     }
 
-    const APP_VERSION = "v0.1-alpha.6";
+    const APP_VERSION = "v0.1-alpha.7";
 
     const SERVICE_UUID = "7f6d0001-6f7a-4f4e-9a8b-3b7f4b000001";
     const TELEMETRY_UUID = "7f6d0002-6f7a-4f4e-9a8b-3b7f4b000001";
@@ -781,6 +840,7 @@
         showError("start", "Web Bluetooth is not available in this browser. Use Chrome or Edge on a supported device.");
         el.btnStart.disabled = true;
       }
+      updateDebug();
     }
 
     function cacheElements() {
@@ -914,6 +974,7 @@
       if (name === "start") {
         clearError("start");
       }
+      updateDebug();
     }
 
     // ---------------------------------------------------------------------
