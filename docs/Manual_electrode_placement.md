@@ -36,7 +36,7 @@ This instruction manual details the placement of surface electrodes for **Sensor
 | **Wrist** | Place one sticker on the **back of your wrist**, on the outer thumb-side edge. | Place electrode over the **radial nerve** branch at the posterior/lateral wrist. |
 | **Forearm** | Place the second sticker on the top of your forearm, **two fingerbreadths** down from the outer "funny bone" of your elbow. | Position electrode over the **Extensor Carpi Radialis (ECR) motor point**, distal to the lateral epicondyle. |
 
-![Electrode placement diagram showing the 4-electrode dual-channel setup on the forearm and wrist](electrode_placement.png)
+![Electrode placement diagram showing the 4-electrode dual-channel setup on the forearm and wrist](../CompanionApp/electrode_placement.png)
 
 ---
 
