@@ -528,6 +528,14 @@
             <div class="metric-label">Samples recorded</div>
             <div class="metric-value"><span id="live-samples">0</span></div>
           </div>
+          <div class="metric">
+            <div class="metric-label">Arm side</div>
+            <div class="metric-value small"><span id="live-arm-side">—</span></div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">Phase</div>
+            <div class="metric-value small"><span id="live-phase">—</span></div>
+          </div>
         </div>
       </div>
     </section>
@@ -793,7 +801,7 @@
       navigator.serviceWorker.register("./sw.js");
     }
 
-    const APP_VERSION = "v0.1-alpha.13";
+    const APP_VERSION = "v0.1-alpha.14";
 
     const SERVICE_UUID  = "7f6d0001-6f7a-4f4e-9a8b-3b7f4b000001";
     const TELEMETRY_UUID = "7f6d0002-6f7a-4f4e-9a8b-3b7f4b000001";
@@ -899,6 +907,8 @@
       el.liveMag = document.getElementById("live-mag");
       el.liveSamples = document.getElementById("live-samples");
       el.liveStim = document.getElementById("live-stim");
+      el.liveArmSide = document.getElementById("live-arm-side");
+      el.livePhase = document.getElementById("live-phase");
 
       el.savedSummary = document.getElementById("saved-summary");
 
@@ -1178,6 +1188,10 @@
         currentAggregate = null;
         resetLiveDisplay();
         showScreen("recording");
+        if (deviceSettings) {
+          el.liveArmSide.textContent = (["—", "Left", "Right"][deviceSettings.armSide]) || "—";
+          el.livePhase.textContent = (["Auto", "Positive", "Negative"][deviceSettings.firePolarityOverride]) || "Auto";
+        }
       } catch (err) {
         currentSession = null;
         isRecording = false;
@@ -2153,6 +2167,8 @@
       el.liveMag.textContent = "--";
       el.liveSamples.textContent = "0";
       el.liveStim.textContent = "0";
+      el.liveArmSide.textContent = "—";
+      el.livePhase.textContent = "—";
     }
 
     function updateStartStatus(text, connected) {

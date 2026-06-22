@@ -157,6 +157,9 @@ def v_sub(a, b):    return (a[0]-b[0],  a[1]-b[1],  a[2]-b[2])
 def v_scale(a, s):  return (a[0]*s,     a[1]*s,     a[2]*s)
 def v_dot(a, b):    return  a[0]*b[0] + a[1]*b[1] + a[2]*b[2]
 def v_norm(a):      return  math.sqrt(v_dot(a, a))
+def v_cross(a, b):  return (a[1]*b[2] - a[2]*b[1],
+                             a[2]*b[0] - a[0]*b[2],
+                             a[0]*b[1] - a[1]*b[0])
 
 
 def v_normalize(a, fallback=(1.0, 0.0, 0.0)):
@@ -546,26 +549,35 @@ class TremorDetector:
             return
         period_s = 1.0 / self.tremor_hz
         polarity = PEAK_POS if direction > 0 else PEAK_NEG
+        if self.target_polarity is not None and polarity != self.target_polarity:
+            return                          # skip non-target crossings
         self.next_stim_t        = (cross_t
                                    + period_s * 0.25
                                    + period_s * STIM_PHASE_OFFSET_CYCLES)
         self.next_stim_polarity = polarity
 
     def _advance_schedule(self, now):
-        """Dead-reckoning: schedule next stim one half-period from now.
+        """Dead-reckoning: schedule next stim from now.
         Only acts when next_stim_t is None.  Works for LOCKED and HOLDOVER.
         Uses sched_hz (heavily filtered) so jitter in tremor_hz does not shift
         the dead-reckoning window.  last_stim_polarity is written here so that
-        consecutive dead-reckoning calls self-alternate without needing a crossing."""
+        consecutive dead-reckoning calls self-alternate without needing a crossing.
+        When target_polarity is set: always use target polarity at full period
+        (one firing per tremor cycle).  Otherwise: alternate at half period."""
         if self.next_stim_t is not None:
             return
         hz = self.sched_hz if self.sched_hz > 0.0 else self.stim_hz
         if hz <= 0.0:
             return
         period_s = 1.0 / hz
-        polarity = PEAK_NEG if self.last_stim_polarity == PEAK_POS else PEAK_POS
+        if self.target_polarity is not None:
+            polarity    = self.target_polarity
+            period_mult = 1.0   # one full cycle between single-polarity firings
+        else:
+            polarity    = PEAK_NEG if self.last_stim_polarity == PEAK_POS else PEAK_POS
+            period_mult = 0.5   # alternating half-period (original behaviour)
         self.next_stim_t        = (now
-                                   + period_s * 0.5
+                                   + period_s * period_mult
                                    + period_s * STIM_PHASE_OFFSET_CYCLES)
         self.next_stim_polarity = polarity
         self.last_stim_polarity = polarity
@@ -603,6 +615,7 @@ class TremorDetector:
         self.next_stim_t        = None
         self.next_stim_polarity = PEAK_POS
         self.last_stim_polarity = PEAK_POS
+        self.target_polarity    = None
         self.holdover_started_t = None
         self.amp_env            = 0.0
         self.mag_env            = 0.0
@@ -668,6 +681,50 @@ arm_side      = _device_settings["arm_side"]       # 0=not set, 1=left, 2=right
 phase_override = _device_settings["phase_override"] # 0=auto, 1=positive, 2=negative
 
 
+def compute_fire_polarity(bno, axis_ref, arm_side, phase_override):
+    """Return PEAK_POS, PEAK_NEG, or None (no stimulation).
+
+    None means: arm_side not configured, or degenerate arm posture (arm
+    near-vertical makes gravity projection too small to determine phase).
+
+    Logic:
+      1. arm_side == 0  -> None (always; phase_override cannot override this)
+      2. phase_override != 0  -> direct return (bypass gravity check)
+      3. auto: gravity degenerate check, then arm-side-based selection
+
+    ASSUMPTION -- needs hardware validation:
+      For right arm with standard dorsal placement (mark toward hand),
+      positive angular velocity around the detected tremor axis corresponds
+      to the arm moving toward the body. Left arm is the mirror (negated).
+      If stimulation appears to reinforce rather than suppress tremor, set
+      phase_override to 2 (force negative) for right arm or 1 for left arm.
+    """
+    if arm_side == 0:
+        return None
+
+    if phase_override != 0:
+        return PEAK_POS if phase_override == 1 else PEAK_NEG
+
+    # Auto: degenerate check -- arm near-vertical means gravity is nearly
+    # parallel to the tremor axis, so we cannot reliably determine phase.
+    g = bno.gravity
+    if g is None:
+        return None
+
+    t = axis_ref
+    g_dot_t = v_dot(g, t)
+    gpx = g[0] - g_dot_t * t[0]
+    gpy = g[1] - g_dot_t * t[1]
+    gpz = g[2] - g_dot_t * t[2]
+    g_perp_sq = gpx*gpx + gpy*gpy + gpz*gpz
+
+    if g_perp_sq < 1.0:   # |g_perp| < 1 m/s^2 -- arm within ~6 deg of vertical
+        return None        # degenerate posture; do not stimulate
+
+    # Select polarity by arm side (see assumption above).
+    return PEAK_POS if arm_side == 2 else PEAK_NEG   # 2=right, 1=left
+
+
 # -- MAIN LOOP ------------------------------------------------------------------
 
 detector      = TremorDetector()
@@ -723,15 +780,37 @@ while True:
         telemetry.maintain()
         continue
 
+    _prev_state = detector.state
     detector.update(gyro, quat, sample_t)
 
+    # At LOCKED transition: compute the single firing polarity.
+    if _prev_state != LOCKED and detector.state == LOCKED:
+        detector.target_polarity = compute_fire_polarity(
+            bno, detector.axis_ref, arm_side, phase_override)
+
+    # Lock lost: clear target polarity so it is recomputed at the next LOCKED.
+    if _prev_state in (LOCKED, HOLDOVER) and detector.state in (UNLOCKED, LOCKING):
+        detector.target_polarity = None
+
+    # Clear stale schedule: wrong polarity, or polarity not yet determined.
+    # Without this, a wrong-polarity schedule during HOLDOVER would block
+    # _advance_schedule() indefinitely.
+    if detector.next_stim_t is not None and sample_t >= detector.next_stim_t:
+        if detector.target_polarity is None:
+            detector.next_stim_t = None
+        elif detector.next_stim_polarity != detector.target_polarity:
+            detector.next_stim_t = None
+            detector._advance_schedule(sample_t)
+
     # Fire scheduled stimulation -- unified path for LOCKED and HOLDOVER.
-    # arm_side must be configured (non-zero); if not set, lock on but do not stimulate.
+    # arm_side must be configured and polarity must be determined (non-None).
     if (detector.next_stim_t is not None
             and sample_t >= detector.next_stim_t
             and sample_t - last_stim_t >= MIN_STIM_INTERVAL_S
             and detector.state in (LOCKED, HOLDOVER)
-            and arm_side != 0):
+            and arm_side != 0
+            and detector.target_polarity is not None
+            and detector.next_stim_polarity == detector.target_polarity):
 
         run_biphasic_burst(
             detector.stim_hz,
@@ -758,6 +837,9 @@ while True:
             arm_side = _changed["arm_side"]
         if "phase_override" in _changed:
             phase_override = _changed["phase_override"]
+        if detector.state in (LOCKED, HOLDOVER):
+            detector.target_polarity = compute_fire_polarity(
+                bno, detector.axis_ref, arm_side, phase_override)
 
     _ble_tremor_hz = detector.tremor_hz if detector.state != UNLOCKED else 0.0
     telemetry.update(
