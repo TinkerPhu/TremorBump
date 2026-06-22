@@ -6,7 +6,9 @@
 
 The current firmware fires a stimulation burst at **every** zero-crossing of the detected tremor angular velocity — i.e. at both π/2 and 3π/2 per cycle. This made sense as a placeholder and is correct for a future dual-channel 4-electrode system where the two channels fire in antiphase. For the current **single-channel 2-electrode system it is clinically wrong**: it stimulates twice per tremor cycle, which disrupts the phase-lock rather than reinforcing it.
 
-**The goal of all three features below is to make the device fire at exactly one zero-crossing per tremor cycle — the one where the arm is moving closest to the body — and to determine that zero-crossing automatically from the sensor data and a one-time arm-side configuration.**
+**The goal of all three features below is to make the device fire at exactly one zero-crossing per tremor cycle — the one where the arm is moving closest to the body — and to determine that zero-crossing automatically from the sensor data and a one-time arm-side configuration set in the companion app.**
+
+If arm side is not configured, the device does **not** stimulate at all. There is no automatic detection, no fallback to both phases, and no ambiguous state. The companion app is the right place to set and confirm arm side.
 
 The three features must be delivered in order. Each is independently testable.
 
@@ -21,23 +23,23 @@ Allow the companion app to read and write persistent device settings over BLE. T
 ### Context
 
 The existing BLE GATT service (`7f6d0001`) has one characteristic:
-- `7f6d0002` — telemetry, **notify + read**, device → app, currently 13 bytes.
+- `7f6d0002` — telemetry, **notify + read**, device → app, 13 bytes (unchanged).
 
-A second characteristic must be added to the same service:
+A second characteristic is added to the same service:
 - `7f6d0003` — settings, **read + write**, bidirectional, 8-byte versioned struct.
+
+The telemetry packet is **not** extended. Settings are read once on connect and trusted for the duration of the session. The session record stores the settings bytes as a header so every recording is self-describing.
 
 ### Settings Struct v1
 
-All bytes little-endian. Total: 8 bytes (fits in one BLE write packet).
+All bytes little-endian. Total: 8 bytes.
 
 | Byte | Field | Type | Values | Default |
 |------|-------|------|--------|---------|
 | 0 | `struct_version` | uint8 | 1 | 1 |
 | 1 | `arm_side` | uint8 | 0 = not set, 1 = left, 2 = right | 0 |
-| 2 | `calibration_wait_s` | uint8 | 1–10 | 4 |
-| 3 | `lateral_threshold_x10` | uint8 | 1–50 (= 0.1–5.0 m/s²) | 20 |
-| 4 | `fire_polarity_override` | uint8 | 0 = auto, 1 = positive crossing, 2 = negative crossing | 0 |
-| 5–7 | *(reserved)* | uint8 × 3 | 0xFF | 0xFF |
+| 2 | `fire_polarity_override` | uint8 | 0 = auto, 1 = positive crossing, 2 = negative crossing | 0 |
+| 3–7 | *(reserved)* | uint8 × 5 | 0xFF | 0xFF |
 
 `struct_version` must be incremented whenever the layout changes. App and firmware both check it and handle mismatches gracefully.
 
@@ -49,13 +51,13 @@ App connects
   → Read 7f6d0003 (8 bytes)
   → Check struct_version
       - Unknown version (device newer than app): show notice, disable writes, show read-only values
-      - Known version: update Settings UI, cache struct in session memory
+      - Known version: update Settings UI, cache struct in session memory as deviceSettings
 ```
 
 **On every user-initiated setting change:**
 ```
 User changes value in Settings screen
-  → Merge change into cached struct (never build struct from UI state alone)
+  → Merge change into cached deviceSettings struct (never build struct from UI state alone)
   → Write full 8-byte struct to 7f6d0003 (write-with-response)
   → Wait 300 ms
   → Read back 7f6d0003
@@ -64,163 +66,94 @@ User changes value in Settings screen
 
 **Settings are never stored in the app's localStorage or IndexedDB. The device NVM is the single source of truth. The app always reads from the device on connect.**
 
+### Session Data Header
+
+When a session starts, the app reads the current `deviceSettings` object (already cached from connect-time read) and stores it as part of the session record in IndexedDB:
+
+```
+session.deviceSettings = {
+  structVersion: 1,
+  armSide: 1,          // 0 = not set, 1 = left, 2 = right
+  firePolarityOverride: 0,
+  rawBytes: [1, 1, 0, 255, 255, 255, 255, 255]  // full 8-byte struct as recorded
+}
+```
+
+This is included in every JSON export under `session.deviceSettings`. It means any recording is fully self-describing: the settings active during that session are always available, regardless of what the device is configured to later.
+
 ### Firmware Implementation Plan (`ble_telemetry.py`)
 
-- Add `7f6d0003` characteristic to the existing GATT service definition with read + write-with-response permissions.
-- On **read**: assemble 8-byte struct from `microcontroller.nvm[0:8]`. If any NVM byte is 0xFF (uninitialised), substitute the field's default value before returning.
-- On **write**: validate `struct_version` matches firmware's expected version — reject silently if not. Validate each field is within allowed range — clamp out-of-range values. Write validated fields to `microcontroller.nvm[0:8]`. Apply any field that takes immediate effect (see Feature 2 for `arm_side`). Flash LED to confirm.
+- Add `7f6d0003` to the existing GATT service with read + write-with-response permissions.
+- On **read**: assemble 8-byte struct from `microcontroller.nvm[0:8]`. If any byte is 0xFF (uninitialised), substitute the field's default before returning.
+- On **write**: validate `struct_version` matches firmware's expected version — reject silently if not. Validate each field is within allowed range — clamp out-of-range values. Write validated fields to `microcontroller.nvm[0:8]`. Apply fields that take immediate effect (see Feature 2 for `arm_side`).
 - Reserve `microcontroller.nvm[0:8]` exclusively for this struct. Any future NVM use starts at index 8.
 
 ### Companion App Implementation Plan (`tremor_recorder.html`)
 
-- On BLE connect, read `7f6d0003` immediately. Settings screen shows a spinner until read completes.
-- Cache read result in a session-scoped JS object `deviceSettings`. All writes merge into this object.
-- Settings screen gains a new "Device settings" section (separate from the existing app-local aggregate interval / stim-window settings, which remain in localStorage):
-  - **Arm side**: Left / Right / Not set (three-way, maps to 1/2/0)
-  - **Calibration window**: slider 1–10 s (advanced, collapsible)
-  - **Phase override**: Auto / Force positive / Force negative (diagnostic, collapsible, labelled "research use only")
+- On BLE connect, read `7f6d0003` immediately. Settings screen shows a loading state until read completes.
+- Cache result in session-scoped JS object `deviceSettings`. All writes merge into this object.
+- On session start (`startRecording()`): copy current `deviceSettings` into the new session record.
+- Settings screen gains a "Device settings" section (separate from the existing app-local aggregate interval / stim-window settings which remain in localStorage):
+  - **Arm side**: Left / Right / Not set (maps to 1 / 2 / 0)
+  - **Phase override**: Auto / Force positive crossing / Force negative crossing (collapsible, labelled "research use only")
 - Write → read-back → confirm / error as per protocol above.
 - On BLE disconnect during a write in progress: show error, re-read on reconnect before enabling further writes.
+- Session export JSON: include `deviceSettings` under each session.
 
 ### Documentation Plan
 
-- `docs/` or inline in app Help: explain that "Device settings" are stored on the device, survive power cycles, and are separate from app-local session settings.
+- Help screen and `docs/`: explain that "Device settings" are stored on the device, survive power cycles, and are separate from app-local session settings. Explain that every exported recording carries the device settings that were active during that session.
 
 ### Open Questions
 
 - [ ] 300 ms read-back delay: verify empirically that `microcontroller.nvm` write completes within this window on the QT Py ESP32-S3.
-- [ ] Write-with-response is recommended. Confirm CircuitPython's `adafruit_ble` supports it on the server (peripheral) side.
-- [ ] Security: no write protection planned for now given niche use case. Revisit if device is used in a clinical setting.
+- [ ] Write-with-response: confirm CircuitPython's `adafruit_ble` supports this on the peripheral side.
+- [ ] Security: no write protection planned for now. Revisit if used in a clinical setting.
 
 ---
 
-## Feature 2: Arm-Side Configuration and Detection
+## Feature 2: Arm-Side Configuration
 
 ### Goal
 
-The device must know which arm it is on (left or right) so that Feature 3 can select the correct stimulation phase. This feature stores the arm side persistently in NVM, communicates it via BLE, confirms it with the LED, and provides a gravity-vector auto-detection fallback for first-time setup.
+The device must know which arm it is on (left or right) so that Feature 3 can select the correct stimulation phase. The arm side is set once in the companion app and stored persistently in device NVM. If it is not set, the device does not stimulate.
 
 ### User Story
 
-> As a patient or carer, I want to configure which arm the device is worn on once — and have the device remember it forever after — so I never have to think about it again. I want a clear visual confirmation that the setting is correct every time I switch the device on.
+> As a patient or carer, I configure which arm the device is on once in the companion app. The device remembers it across power cycles. If it is not set, the app tells me clearly and no stimulation happens until I configure it.
 
-### Primary Mechanism: App Sets NVM via BLE Settings Characteristic
-
-This is the default workflow:
+### Mechanism
 
 1. Patient (or carer) connects the companion app.
 2. Opens Settings → selects Left or Right arm.
 3. App writes `arm_side` field to the device via `7f6d0003`.
-4. Firmware writes to NVM and flashes LED confirmation (cyan = right, magenta = left).
-5. On every subsequent power-on, device reads NVM, knows arm side, shows LED confirmation for 1 second, proceeds to normal operation.
+4. Firmware writes to NVM.
+5. On every subsequent power-on, device reads NVM and has arm side immediately. No calibration, no detection, no posture.
 
-No calibration posture. No timing windows. No ambiguity.
+If `arm_side == 0` (not set): the app shows a clear, prominent message — "Arm side not configured. Go to Settings to set it before starting a session." The Start recording button is disabled until arm side is set.
 
-### Fallback Mechanism: Gravity Auto-Detection (First Boot / NVM Empty)
+### Firmware Implementation Plan (`tremor_detection.py` + `ble_telemetry.py`)
 
-If NVM byte 1 is 0 (never configured), the device runs a one-time gravity-based detection at startup:
-
-**Calibration posture:**  
-Patient holds both arms in front with thumbs pointing toward each other and little fingers pointing downward — wrist tilted approximately 45° diagonal with thumb side higher. Sensor always on the dorsal (back) of the wrist, marked end toward the hand.
-
-In this posture the sign of the gravity vector's lateral component (across the wrist, perpendicular to the forearm long axis) is opposite for left and right arm due to bilateral body symmetry.
-
-**Detection:**
-1. White pulsing LED (200 ms on/off) for `calibration_wait_s` (default 4 s) — "assume posture now."
-2. Sample gravity vector, average 10 readings over 500 ms.
-3. Project onto sensor lateral axis.
-4. If magnitude > `lateral_threshold_x10 / 10` m/s²: sign → arm side. Write NVM. Show LED 2 s.
-5. If magnitude ≤ threshold: flash red 2 s, retry once. After second failure: `arm_side = UNKNOWN`, steady orange LED, continue without writing NVM.
-
-**This auto-detection only runs when NVM is empty.** On all subsequent boots the NVM value is used. The fallback is only ever encountered on first use or after an explicit NVM reset.
-
-### Startup Boot Sequence
-
-```
-Power on
-  │
-  ▼
-Read microcontroller.nvm[1] (arm_side field)
-  │
-  ├─ 1 or 2 ──► Flash cyan (right) or magenta (left) 1 s ──► Normal operation
-  │
-  └─ 0 (not set) ──► White pulse 4 s (assume posture)
-                        │
-                        ├─ Gravity OK ──► Write NVM ──► Flash cyan/magenta 2 s ──► Normal operation
-                        │
-                        └─ Fail × 2 ──► Orange steady ──► arm_side = UNKNOWN ──► Normal operation
-```
-
-### LED Colour Assignment
-
-| Event | Colour | Duration | Notes |
-|-------|--------|----------|-------|
-| Calibration window | White, pulsing 200/200 ms | 4 s | "Assume posture" |
-| Sampling | White, steady | 0.5 s | Reading gravity |
-| Right arm confirmed | Cyan | 1–2 s | Does not conflict with any run-time state |
-| Left arm confirmed | Magenta | 1–2 s | Does not conflict with any run-time state |
-| Ambiguous reading | Red, fast 100 ms | 2 s | "Try again" |
-| Unknown / failed | Orange, steady | Until next event | "Set manually in app" |
-
-> ⚠ **Yellow is NOT used for left arm.** Yellow is already the LOCKING state colour in normal operation. Magenta is used instead to avoid confusion, even though the startup sequence and normal operation are temporally separate.
-
-Existing run-time NeoPixel colours (unchanged):
-
-| State | Colour |
-|-------|--------|
-| UNLOCKED | Blue |
-| LOCKING | Yellow |
-| LOCKED | Off |
-| HOLDOVER | Off (brief burst flashes on stimulation) |
-
-### Telemetry Packet Extension
-
-Add byte 13 to the existing notify packet:
-
-| Byte | Field | Type | Values |
-|------|-------|------|--------|
-| 13 | `arm_side` | uint8 | 0 = unknown, 1 = left, 2 = right |
-
-Total: 14 bytes. App decoder must be updated.
-
-### Firmware Implementation Plan (`ble_telemetry.py` + `tremor_detection.py`)
-
-- `ble_telemetry.py`: add byte 13 to the notify packet struct. Populate from `arm_side` variable maintained by tremor_detection.
-- `tremor_detection.py`: on startup, read `microcontroller.nvm[1]`. Branch to NVM path or gravity-detect path. Maintain `arm_side` variable accessible to BLE module. Handle BLE settings write for `arm_side` field: validate, write NVM, update RAM variable, flash LED.
+- `tremor_detection.py`: on startup, read `microcontroller.nvm[1]` into `arm_side`. Expose `arm_side` to the BLE module.
+- `ble_telemetry.py`: when the settings characteristic receives a write with a new `arm_side` value, write to `microcontroller.nvm[1]` and update the RAM variable immediately (takes effect in the current session without restart).
+- `arm_side = 0`: the device reaches LOCKED state but does not call `run_biphasic_burst()`. No stimulation occurs. This is not an error state — it simply means the device has not been configured yet.
 
 ### Companion App Implementation Plan
 
-- Start screen status bar: show arm-side chip alongside connection status. Cyan = right, magenta = left, grey = unknown.
-- When `arm_side == UNKNOWN` and connected: non-blocking warning banner "Arm side unknown — set in Settings or restart device."
-- Settings screen "Device settings" section (from Feature 1): arm-side selector as described.
-- Session export JSON: add `armSide` field to session metadata.
-- Recording screen metrics card: small read-only "Arm side" and "Phase" fields (populated from telemetry bytes 13 and 14 once Feature 3 is done).
+- On connect: read `7f6d0003`. If `arm_side == 0`: show a clear prominent message on the start screen "Arm side not set — configure in Settings before recording." Disable the "Start recording" button.
+- Start recording is only enabled when `arm_side` is 1 or 2.
+- Settings screen: arm-side selector as described in Feature 1.
+- Session export: `deviceSettings.armSide` is in every session record (via Feature 1 session header).
 
 ### Documentation Plan
 
-- Help screen: add "Startup — arm side" section. Explain both paths (set in app = recommended; auto-detect on first boot). Include:
-  - Calibration posture diagram (both hands, thumbs toward each other, little fingers down, ~45° tilt, sensor mark toward hand).
-  - 6-step startup instructions (see below).
-  - Sensor placement diagram: dorsal side, mark toward hand.
-  - Description of the LED colours and what they mean.
-- Manual (`docs/Manual_electrode_placement.md`): add sensor placement section describing the dorsal placement rule and the directional mark. This is a hard constraint: **if the sensor is not on the dorsal side, the gravity detection inverts**.
-- `docs/` or inline README: document the NVM byte layout.
-
-**Step-by-step startup instructions (first use, NVM empty):**
-1. Put the device on (dorsal side of wrist, marked end toward hand).
-2. Switch on — LED pulses white. You have ~4 seconds.
-3. Hold both hands in front of you: thumbs pointing toward each other, little fingers pointing down. Tilt so your thumbs are slightly higher than your little fingers.
-4. Hold still until the LED changes.
-5. Cyan = right arm, magenta = left arm. If correct: wait for normal startup.
-6. If LED flashes red: the posture was not clear enough. Repeat step 3.
-7. If LED stays orange: posture could not be detected. Open the companion app → Settings → set arm side manually.
+- Help screen: explain that arm side must be set once before first use. Explain what happens if it is not set (no stimulation, app shows message).
+- Manual: add sensor placement rule — device must always be on the **dorsal (back) side** of the wrist, with the marked end pointing toward the hand. This is a hard constraint: wrong placement inverts the phase selection in Feature 3.
 
 ### Open Questions
 
-- [ ] `LATERAL_THRESHOLD` default 2.0 m/s² (≈ sin(12°) × 9.81): verify empirically with the physical prototype. A tilt of 12° or more is sufficient — the posture instruction calls for ~45°, so this gives large margin.
-- [ ] Calibration window duration (4 s) should be configurable from app (`calibration_wait_s` in settings struct). Confirm this is included in Feature 1 struct.
-- [ ] NVM byte index: Feature 1 defines `microcontroller.nvm[0]` as `struct_version` and `nvm[1]` as `arm_side`. Confirm that the startup read uses `nvm[1]` (not `nvm[0]` as written in some earlier notes — that was a draft error).
-- [ ] "Re-detect" command from app: implement as writing `arm_side = 0` to the settings characteristic. Device writes 0 to NVM. On next power cycle the gravity path runs again. No special command needed.
+- [ ] NVM byte index: `arm_side` is at `microcontroller.nvm[1]` (byte 1 of the settings struct, after `struct_version` at byte 0). Confirm all startup code reads byte 1, not byte 0.
+- [ ] "Not set" UX: should the Settings screen open automatically if arm side is not set when first connecting? Consider an onboarding flow for first use.
 
 ---
 
@@ -228,18 +161,18 @@ Total: 14 bytes. App decoder must be updated.
 
 ### Goal
 
-This is the main goal of the entire backlog. Once the arm side is known (Feature 2), the firmware derives the correct zero-crossing polarity (positive or negative) to use as the stimulation trigger, and fires **once per tremor cycle** at that crossing. The result is a properly phase-locked single-channel SES therapy.
+This is the main goal of the entire backlog. Once the arm side is known (Feature 2), the firmware derives the correct zero-crossing polarity (positive or negative) to use as the stimulation trigger and fires **once per tremor cycle** at that crossing only.
 
 ### User Story
 
-> As a patient, I want the device to fire one stimulation pulse per tremor cycle — at the moment my arm is moving closest to my body — so that the therapy correctly interrupts the tremor feedback loop instead of accidentally reinforcing it.
+> As a patient, I want the device to fire one stimulation pulse per tremor cycle — at the moment my arm is moving closest to my body — so that the therapy correctly interrupts the tremor feedback loop instead of reinforcing it.
 
 ### Acceptance Criteria
 
-1. With arm side known and sensor correctly placed (dorsal, mark toward hand), stimulation fires exactly once per tremor cycle.
+1. With arm side set and sensor correctly placed (dorsal, mark toward hand), stimulation fires exactly once per tremor cycle.
 2. The firing zero-crossing corresponds to the arm moving toward the body.
 3. Behaviour is mirrored correctly for left vs. right arm.
-4. If arm side is UNKNOWN: device falls back to firing at both zero-crossings (current behaviour) and app shows a warning on the recording screen.
+4. If arm side is not set (`arm_side == 0`): device locks on to tremor but does not stimulate. App shows "Arm side not set — no stimulation active."
 5. The phase can be overridden manually from the app Settings (research/diagnostic use only).
 6. Stimulation count in telemetry increments once per cycle (previously twice).
 
@@ -252,64 +185,52 @@ The two zero-crossings per cycle are:
 - **Negative-going** (velocity crosses zero from positive to negative): arm reverses direction the other way.
 
 Which one corresponds to "arm moving toward body" depends on:
-1. **Gravity vector**: tells us the orientation of the sensor in 3D space (up/down unambiguous).
-2. **Arm side (left/right)**: mirrors the anatomical axis — on the right arm, "toward body" is a leftward rotation; on the left arm it is rightward.
-3. **Sensor placement constraint**: sensor must be on the dorsal side — this fixes the sign convention between the sensor's lateral axis and the anatomical rotation direction.
+1. **Arm side (left/right)**: mirrors the anatomical rotation axis.
+2. **Sensor placement**: sensor on the dorsal side with mark toward the hand — this fixes the sign convention. This is a hard constraint documented in Feature 2.
 
-> ⚠ **Constraint — arm posture for phase computation:**  
-> The gravity vector resolves up/down. "Toward the body" is a roughly horizontal direction. For the derivation to work, the arm must be approximately horizontal (extended forward or to the side) during lock-in, so that the gravity-projected component on the tremor axis is informative. The firmware should compute phase polarity once at the moment of LOCKED transition, using the gravity vector at that instant. If the arm is pointing straight up or down at lock-in, the derivation may be ambiguous — treat this as a degenerate case and fall back to BOTH.
+> ⚠ **Posture constraint for phase computation:**  
+> The gravity vector provides up/down orientation. "Toward the body" is a roughly horizontal direction. For the derivation to work reliably, the arm should be approximately horizontal (extended forward or to the side) at the moment the device locks in. The firmware computes `fire_polarity` once at the LOCKED transition using the gravity vector at that instant. If the arm is near-vertical at lock-in, the gravity projection onto the tremor plane is weak — treat this as a degenerate case and do not stimulate until re-lock with a better posture.
 
-**Derivation steps (to be validated on hardware before coding):**
-1. At transition to LOCKED: read gravity vector `g` and dominant tremor axis `t` (both from BNO055 NDOF output).
-2. Project `g` onto the plane perpendicular to `t`: `g_perp = g - (g·t)t`. This is the "downward" direction as seen from the tremor axis.
-3. The "toward body" rotational direction is the cross product of `t` and `g_perp`, sign-corrected for arm side.
-4. Compare this direction to the sign convention of the angular velocity projection. The matching zero-crossing polarity is `fire_polarity`.
+**Derivation (to be validated on hardware before coding):**
+1. At LOCKED transition: read gravity vector `g` and dominant tremor axis unit vector `t` (both from BNO055 NDOF output).
+2. Project `g` onto the plane perpendicular to `t`: `g_perp = g − (g·t)t`. This gives the "downward" direction as seen from the tremor axis.
+3. The "toward body" rotational direction = cross product of `t` and `g_perp`, sign-corrected for arm side (negated for left arm).
+4. Compare this direction to the sign of the angular velocity projection at lock-in to select `fire_polarity`.
 
 ### Firmware Implementation Plan (`tremor_detection.py`)
 
 - On transition to `LOCKED` state:
-  - If `arm_side == UNKNOWN`: set `fire_polarity = BOTH`. Continue current behaviour.
-  - If `arm_side` is known: compute `fire_polarity` using the derivation above.
-  - If `fire_polarity_override != 0` (from settings struct): use override value instead.
-- In `LOCKED` and `HOLDOVER` states: only call `run_biphasic_burst()` at zero-crossings matching `fire_polarity`. Skip the other crossing.
-- Re-compute `fire_polarity` each time the device re-locks (after holdover or re-locking from UNLOCKED). The arm may have moved.
-- Include `fire_polarity` (0 = both, 1 = positive crossing, 2 = negative crossing) as byte 14 in the telemetry notify packet.
-
-### Telemetry Packet Extension (cumulative)
-
-| Byte | Field | Notes |
-|------|-------|-------|
-| 0–12 | Existing fields | Unchanged |
-| 13 | `arm_side` | Added in Feature 2 |
-| 14 | `fire_polarity` | 0 = both (fallback), 1 = positive, 2 = negative |
-
-Total packet: 15 bytes.
+  - If `arm_side == 0` (not set): set `fire_polarity = NONE`. Do not call `run_biphasic_burst()` at any zero-crossing.
+  - If `arm_side` is known (1 or 2) and `fire_polarity_override == 0`: compute `fire_polarity` using the derivation above.
+  - If `fire_polarity_override != 0`: use override value directly.
+  - If gravity projection is too weak (degenerate posture): set `fire_polarity = NONE`, do not stimulate.
+- In `LOCKED` and `HOLDOVER` states: only call `run_biphasic_burst()` at zero-crossings matching `fire_polarity`. Skip all other crossings.
+- Re-compute `fire_polarity` at each re-lock. The arm may have moved.
+- **Do not extend the telemetry packet.** `fire_polarity` and `arm_side` are available to the app via the settings characteristic and the session header.
 
 ### Companion App Implementation Plan
 
-- Update telemetry packet decoder: read byte 14 as `firePolarity`.
-- Recording screen: show `armSide` and `firePolarity` as small status fields in the secondary metrics card. Values: "Both (unknown arm)" / "Positive" / "Negative".
-- Warning on recording screen if `firePolarity == 0` (both): "Arm side unknown — stimulation firing at both phases. Set arm side in Settings."
-- Settings screen "Device settings" → "Phase override" (already planned in Feature 1): Auto / Force positive crossing / Force negative crossing. Labelled "Research / diagnostic use only."
-- Session export JSON: add `firePolarity` to session metadata.
-- Stimulation count metric: relabel from "Stimulation count" to "Stimulation bursts" (count now increments once per cycle, not twice — no numerical change needed, just a label clarification).
+- Recording screen: show "Arm side" (from `deviceSettings` cached at connect time) as a small read-only status field. No telemetry bytes needed — this comes from the settings read.
+- If `deviceSettings.armSide == 0` and a recording is started (should be blocked by Feature 2, but as defence): show a persistent red warning on the recording screen "Arm side not set — device is not stimulating."
+- Settings screen "Phase override" (from Feature 1): Auto / Force positive / Force negative. Labelled "Research / diagnostic use only."
+- Session export: `deviceSettings.firePolarityOverride` is already in the session header from Feature 1.
+- Stimulation count metric: relabel from "Stimulation count" to "Stimulation bursts".
 
 ### Documentation Plan
 
-- Help screen: add brief explanation that the device automatically selects the stimulation phase from the sensor data and arm side. No user action required beyond correct arm-side configuration.
-- Help screen warning: "If the arm-side indicator shows 'unknown', the device stimulates at both phases, which reduces therapy effectiveness. Set the arm side in Settings."
-- Manual: add a technical note on the phase-selection mechanism for clinical reference.
+- Help screen: brief explanation that the device selects the stimulation phase automatically from the sensor and arm-side configuration. No user action needed beyond setting arm side once.
+- Help screen: "If arm side is not set, the device detects your tremor but does not deliver stimulation. Set arm side in Settings."
+- Manual: technical note on the phase-selection mechanism.
 
 ### Dependencies
 
-- Feature 3 cannot start until Feature 2 is complete and `arm_side` is reliably available in firmware.
-- BLE packet must be 15 bytes. App decoder and firmware must be updated together.
-- **The phase derivation math must be validated on paper and then on the physical device before coding.** Document the exact BNO055 axis convention (X/Y/Z orientation on the sensor chip vs. the anatomical forearm axes) before writing a single line of firmware.
+- Feature 3 cannot start until Feature 2 is complete and `arm_side` is reliably written to NVM and read by firmware.
+- **The phase derivation math must be validated on paper and on the physical device before writing any firmware.** Document the exact BNO055 axis convention (X/Y/Z vs. anatomical forearm axes) first.
 
 ### Open Questions
 
-- [ ] Work out and document the BNO055 coordinate frame: which sensor axis is along the forearm, which is lateral, which is dorsal. This is the foundation of the entire derivation. Get it wrong and the phase is inverted.
-- [ ] Define "toward body" precisely for the expected tremor type (Essential Tremor typically involves pronation/supination and flexion/extension of the wrist and forearm). Is the relevant motion adduction or flexion? This may need per-patient validation in early trials.
-- [ ] Degenerate case: arm pointing straight up or down at lock-in. Define the ambiguity threshold and the fallback behaviour (fire at both, warn in app).
-- [ ] Amplitude-comparison validation: after shipping phase-correct stimulation, add an optional calibration mode where the device fires at each polarity for 10 cycles and reports the tremor amplitude change to the app. This lets a clinician verify that the chosen phase is actually reducing tremor — or flip it if not.
-- [ ] Stimulation count relabelling: confirm with any clinical collaborators that relabelling "count" as "bursts" and halving the per-session count is not confusing for session comparison across the old and new firmware.
+- [ ] Work out and document the BNO055 coordinate frame. Which sensor axis is along the forearm, which is lateral, which is dorsal-normal. This is the foundation of the entire derivation — get it wrong and the phase is inverted.
+- [ ] Define "toward body" precisely for the expected tremor type. Essential Tremor typically involves pronation/supination and flexion/extension of the wrist. Is the therapeutically relevant motion adduction or flexion? May need per-patient validation in early trials.
+- [ ] Degenerate posture threshold: how small does `|g_perp|` need to be before we consider the posture degenerate? Suggested: if `|g_perp| < 1.0 m/s²` (arm within ~6° of vertical), do not stimulate and log the reason.
+- [ ] Amplitude-comparison validation: after shipping, consider an optional diagnostic mode where the device alternates phases for N cycles each and the app reports the tremor amplitude change. This lets a clinician verify the chosen phase actually reduces tremor, or flip it if not.
+- [ ] Stimulation count relabelling: confirm "bursts" vs. "count" does not break comparison of old vs. new session exports for any ongoing trials.
