@@ -250,10 +250,10 @@ class BLETremorTelemetry:
         current = bytes(self.service.settings)
         if current == self._last_settings:
             return None
-        coerced = self._coerce_settings(current)
-        if coerced[_IDX_VERSION] != _SETTINGS_VERSION:
+        if current[_IDX_VERSION] != _SETTINGS_VERSION:
             self.service.settings = self._settings
             return None
+        coerced = self._coerce_settings(current)
         microcontroller.nvm[_NVM_START : _NVM_START + _SETTINGS_LEN] = coerced
         self._settings = coerced
         self._last_settings = bytes(coerced)
