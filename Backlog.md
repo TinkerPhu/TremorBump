@@ -44,37 +44,61 @@ This approach is sound in principle. Two constraints must be documented and resp
 
 ---
 
-### Auto-detect left/right arm at startup via calibration posture
+### Arm-side selection: NVM storage + optional gravity auto-detect
 
-**Idea:** Instead of requiring the user to select left/right in the app, the device can detect which arm it is on at startup using a defined calibration posture and the gravity vector.
+#### Non-volatile storage — the primary mechanism
 
-**Calibration posture:**  
-The patient places both hands in front of them with thumbs pointing toward each other and little fingers pointing downward — the wrist is held at approximately 45° diagonal (thumb side higher). The sensor is always mounted on the dorsal (back) of the wrist with the marked end pointing toward the hand. In this posture, the sign of the lateral gravity component (across the wrist, perpendicular to the forearm axis) is opposite for the left and right hand due to bilateral body symmetry.
+CircuitPython exposes `microcontroller.nvm` — a 256-byte bytearray backed by the ESP32-S3's internal flash that survives power cycles and resets. Storing the arm-side selection costs exactly one byte and requires no filesystem access, no settings.toml editing, and no USB coordination:
 
-**Detection logic:**
-1. At startup, the device enters a calibration window (e.g., 3 seconds) — indicated by a pulsing white LED meaning "assume calibration posture."
-2. At the end of the window, the firmware reads the gravity vector projected onto the sensor's lateral axis.
-3. If the lateral component exceeds a confidence threshold: positive → right arm (cyan LED), negative → left arm (yellow LED).
-4. If the lateral component is below the threshold (wrist too flat, posture not assumed): red flashing LED → repeat.
-5. The detected arm side is stored in memory and held until the next restart.
+```python
+import microcontroller
+# Values: 0 = not set, 1 = left, 2 = right
+ARM_NVM_INDEX = 0
+arm_side = microcontroller.nvm[ARM_NVM_INDEX]   # read on boot
+microcontroller.nvm[ARM_NVM_INDEX] = 2           # write from BLE command
+```
 
-**Why this works:**  
-The calibration posture constrains both roll ("little finger down") and yaw ("thumb toward midline"). These two constraints on a 3D gravity vector uniquely resolve the left/right ambiguity. The sign of the lateral component is stable across a wide range of "diagonal" angles — the patient does not need to be precise about the exact tilt angle, only that it is clearly non-zero.
+This changes the primary UX entirely for the better:
 
-**Known issues and constraints:**
+- **First use:** patient (or carer) opens the companion app, goes to Settings, selects Left or Right arm. The app sends the value to the device over BLE. The firmware writes it to NVM and confirms via LED (cyan = right, yellow = left).
+- **Every subsequent power-on:** the device reads NVM at boot, knows the arm side immediately, indicates it briefly with the LED, and enters normal operation. **No calibration posture. No timing window. No risk of mis-detection.**
+- **Re-configuration:** same as first use — change in app Settings → BLE write → NVM update → LED confirmation.
 
-> ⚠ **Critical: do NOT read at hard power-on.** The patient needs a few seconds to assume the posture after switching the device on. A startup delay with a visual cue (pulsing white LED) is mandatory — this is the single most failure-prone aspect of the approach.
+This is the approach to implement. The gravity-vector calibration posture described below becomes an **optional secondary mechanism** for users who cannot use the app, or as a self-check.
 
-> ⚠ **Sensor placement mark must be unambiguous.** "Pointing toward the hand" needs a clear physical mark on the device and a diagram in the manual. Misplacement inverts the detection.
+#### Gravity auto-detect — optional / first-time fallback
 
-> ⚠ **Posture instruction must specify tilt direction.** "Diagonal" is too vague. Instructions must say: "tilt the wrist so the thumb side is higher than the little-finger side, approximately 45 degrees."
+The calibration posture approach (documented in the original backlog entry) remains valid as a fallback for situations where the app is unavailable, or as a one-time factory/first-use wizard. Its role is now:
 
-> ⚠ **Bilateral tremor / limited mobility.** The posture requires both hands to be free momentarily. This may be difficult for some patients. The app's manual left/right selector should remain as a fallback.
+- **NVM slot is empty (value 0, never configured):** device runs the gravity calibration posture at startup and writes the result to NVM. This only happens once — on all subsequent boots the NVM value is used directly.
+- **Manual reset option:** a long-press of a button (if hardware provides one), or an explicit "re-detect arm" command from the app, clears the NVM slot and triggers re-detection on next boot.
 
-**What needs to be built:**
-- **Firmware:** Startup calibration window state, gravity lateral-component sign detection, confidence threshold, LED colour coding (white pulse → cyan/yellow/red).
-- **Companion app:** Status indicator showing the detected arm side (e.g., "Right arm detected" in a status bar, with the LED colour). Manual override selector in Settings as fallback.
-- **Docs / Help screen:** Calibration posture diagram and step-by-step instructions. Sensor placement diagram with the directional mark clearly shown.
+The calibration posture details, constraints, and LED sequence remain as previously documented. The critical difference is that patients only encounter it once (or never, if configured from the app first).
+
+#### Revised startup boot sequence
+
+```
+Power on
+  │
+  ▼
+Read microcontroller.nvm[0]
+  │
+  ├─ Value 1 or 2 (configured) ──► Show cyan/yellow for 1 s ──► Normal startup
+  │
+  └─ Value 0 (not set) ──► Enter calibration window (white pulse, 4 s)
+                              │
+                              ├─ Gravity detected OK ──► Write NVM ──► Show cyan/yellow 2 s ──► Normal startup
+                              │
+                              └─ Ambiguous / failed twice ──► Orange steady ──► Normal startup (arm_side = UNKNOWN)
+```
+
+#### What this means for Spec A
+
+The NVM mechanism makes Spec A simpler and more reliable. The revised "What needs to be built" is:
+
+- **Firmware:** Read `microcontroller.nvm[0]` at boot; add a BLE write handler to receive arm-side from app and store to NVM; implement the gravity calibration path as fallback for NVM-empty boot; LED colour confirmation in both paths.
+- **Companion app:** Settings screen "Arm side" selector (Left / Right / Auto-detect); writes to device via BLE when changed; displays current NVM-stored value when connecting; status chip on start screen.
+- **Docs / Help:** Explain both paths — "set in app (recommended)" and "auto-detect on first use." Sensor placement diagram still required for the gravity-detect path.
 
 **References:**  
 See `docs/SES_Clinical_Reference.md` for the neurophysiology of phase-locked stimulation and the importance of stimulation timing relative to the tremor cycle.
@@ -114,16 +138,15 @@ Spec B depends on Spec A being complete and validated. Spec A can be tested inde
 
 | ID | Requirement |
 |----|-------------|
-| FW-A1 | On power-on, initialise BNO055 and enter `CALIBRATING` state before any other state. |
-| FW-A2 | In `CALIBRATING` state, pulse NeoPixel white (on 200 ms, off 200 ms) for a configurable wait period (`CALIBRATION_WAIT_S`, default 4 s) to allow the patient to assume the posture. |
-| FW-A3 | At end of wait period, sample the BNO055 gravity vector. Average 10 samples over 500 ms to reduce noise. |
-| FW-A4 | Project the gravity vector onto the sensor's lateral axis (the axis perpendicular to both the forearm long axis and the dorsal normal — i.e. the axis pointing from ulnar to radial side when sensor is dorsal). |
-| FW-A5 | If the lateral component magnitude exceeds `LATERAL_THRESHOLD` (default 2.0 m/s²): sign > 0 → RIGHT arm; sign < 0 → LEFT arm. Store result in `arm_side` variable. |
-| FW-A6 | If lateral component magnitude ≤ `LATERAL_THRESHOLD`: flash red LED for 2 s, increment `calibration_attempts` counter, repeat from FW-A2 if `calibration_attempts < 2`. |
-| FW-A7 | After 2 failed attempts: set `arm_side = UNKNOWN`, set NeoPixel to steady orange, proceed to normal startup. |
-| FW-A8 | On successful detection: show cyan (right) or yellow (left) for 2 s, then proceed to normal startup (`UNLOCKED` state). |
-| FW-A9 | Include `arm_side` (0 = unknown, 1 = left, 2 = right) in the BLE telemetry packet. This requires extending the packet format (see Spec B for full packet update). |
-| FW-A10 | `arm_side` is reset to UNKNOWN on every power cycle. It is never stored in non-volatile memory. |
+| FW-A1 | On power-on, read `microcontroller.nvm[0]`. Values: 0 = not set, 1 = left, 2 = right. |
+| FW-A2 | If NVM value is 1 or 2: set `arm_side` accordingly, show cyan (right) or yellow (left) for 1 s, proceed directly to normal startup. Skip calibration posture. |
+| FW-A3 | If NVM value is 0: enter `CALIBRATING` state — pulse NeoPixel white (200 ms on/off) for `CALIBRATION_WAIT_S` (default 4 s). |
+| FW-A4 | At end of calibration window, sample BNO055 gravity vector averaged over 10 samples / 500 ms. Project onto sensor lateral axis. |
+| FW-A5 | If lateral component magnitude > `LATERAL_THRESHOLD` (default 2.0 m/s²): set `arm_side` from sign; write result to `microcontroller.nvm[0]`; show cyan/yellow 2 s; proceed to normal startup. |
+| FW-A6 | If lateral component ≤ threshold: flash red 2 s, retry once (back to FW-A3). After second failure: `arm_side = UNKNOWN`, steady orange LED, proceed without writing NVM. |
+| FW-A7 | Add a BLE writable characteristic (`ARM_SIDE_UUID`) accepting 1 byte (1 = left, 2 = right, 0 = clear). On write: validate, store to `microcontroller.nvm[0]`, update `arm_side`, confirm with cyan/yellow flash. |
+| FW-A8 | Include `arm_side` (0 = unknown, 1 = left, 2 = right) as byte 13 in the BLE telemetry notify packet (extends packet 13 → 14 bytes). |
+| FW-A9 | `arm_side` in RAM reflects the current session value. NVM reflects the persisted configured value. They are kept in sync whenever a BLE write or successful gravity detection occurs. |
 
 #### Functional Requirements — Companion App
 
