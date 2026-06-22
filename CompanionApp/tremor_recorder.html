@@ -249,6 +249,15 @@
       white-space: pre-wrap;
     }
 
+    .warning {
+      border: 1px solid #fcd34d;
+      background: #fffbeb;
+      color: #78350f;
+      border-radius: 16px;
+      padding: 14px;
+      margin-top: 16px;
+    }
+
     .summary-table {
       width: 100%;
       border-collapse: collapse;
@@ -452,6 +461,12 @@
         <div class="status-line">
           <span id="start-dot" class="dot"></span>
           <span id="start-status">Not connected</span>
+        </div>
+        <div id="arm-side-line" class="status-line hidden">
+          <span id="arm-side-status"></span>
+        </div>
+        <div id="start-arm-side-warning" class="warning hidden">
+          Arm side not configured — go to <strong>Settings</strong> to set which arm before recording.
         </div>
         <div class="button-row">
           <button id="btn-start" class="btn-hero">Start recording</button>
@@ -778,7 +793,7 @@
       navigator.serviceWorker.register("./sw.js");
     }
 
-    const APP_VERSION = "v0.1-alpha.12";
+    const APP_VERSION = "v0.1-alpha.13";
 
     const SERVICE_UUID  = "7f6d0001-6f7a-4f4e-9a8b-3b7f4b000001";
     const TELEMETRY_UUID = "7f6d0002-6f7a-4f4e-9a8b-3b7f4b000001";
@@ -872,6 +887,9 @@
       el.startDot = document.getElementById("start-dot");
       el.startStatus = document.getElementById("start-status");
       el.startError = document.getElementById("start-error");
+      el.armSideLine = document.getElementById("arm-side-line");
+      el.armSideStatus = document.getElementById("arm-side-status");
+      el.startArmSideWarning = document.getElementById("start-arm-side-warning");
       el.recordingStatus = document.getElementById("recording-status");
       el.recordingError = document.getElementById("recording-error");
 
@@ -977,6 +995,7 @@
       }
       if (name === "start") {
         clearError("start");
+        updateArmSideDisplay();
       }
     }
 
@@ -1147,6 +1166,11 @@
       try {
         currentSession = createSession();
         await connectDevice();
+        currentSession.deviceSettings = deviceSettings ? { ...deviceSettings } : null;
+        if (deviceSettings && deviceSettings.armSide === 0) {
+          currentSession = null;
+          return;
+        }
         await idbPut(STORE_SESSIONS, currentSession);
         isRecording = true;
         storageErrorShown = false;
@@ -1164,6 +1188,7 @@
       } finally {
         el.btnStart.disabled = false;
         el.btnNew.disabled = false;
+        updateArmSideDisplay();
       }
     }
 
@@ -1201,6 +1226,7 @@
       telemetryCharacteristic = null;
       settingsCharacteristic = null;
       deviceSettings = null;
+      updateArmSideDisplay();
       notificationsActive = false;
 
       if (!isRecording) {
@@ -1412,6 +1438,7 @@
         telemetryCharacteristic = null;
         settingsCharacteristic = null;
         deviceSettings = null;
+        updateArmSideDisplay();
         gattServer = null;
         bluetoothDevice = null;
         notificationsActive = false;
@@ -2086,6 +2113,26 @@
     // ---------------------------------------------------------------------
     // Display & general helpers
     // ---------------------------------------------------------------------
+
+    function updateArmSideDisplay() {
+      if (!deviceSettings) {
+        el.armSideLine.classList.add("hidden");
+        el.startArmSideWarning.classList.add("hidden");
+        return;
+      }
+      const armSide = deviceSettings.armSide;
+      el.armSideStatus.textContent = (["Arm side not set", "Left arm", "Right arm"][armSide]) || "Unknown";
+      el.armSideLine.classList.remove("hidden");
+      if (armSide === 0) {
+        el.startArmSideWarning.classList.remove("hidden");
+        el.btnStart.disabled = true;
+      } else {
+        el.startArmSideWarning.classList.add("hidden");
+        if (navigator.bluetooth) {
+          el.btnStart.disabled = false;
+        }
+      }
+    }
 
     function updateLiveDisplay(sample, sampleCount) {
       el.liveState.textContent = sample.stateName;

@@ -2,6 +2,15 @@ This instruction manual details the placement of surface electrodes for **Sensor
 
 ---
 
+### **Sensor Placement Rule**
+
+The TremorBump device must always be worn on the **dorsal (back) side** of the wrist, with the **marked end pointing toward the hand**. This placement is required for the automatic phase selection to derive the correct stimulation timing. Placing the device differently inverts the phase logic.
+
+- **Dorsal side**: the back of the wrist (same side as the knuckles), not the palm side.
+- **Mark toward hand**: the arrow or notch on the device casing points toward the fingers, not the elbow.
+
+---
+
 ### **Safety & Expectations**
 *   **The Goal:** You should feel a **"strong but comfortable" tingling or tickling** sensation.
 *   **The Limit:** Do **NOT** increase the power until the muscles twitch or the hand moves involuntarily. This is the **Motor Threshold (MT)**; SES must remain **sub-motor** (below that level).

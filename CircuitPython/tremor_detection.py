@@ -726,10 +726,12 @@ while True:
     detector.update(gyro, quat, sample_t)
 
     # Fire scheduled stimulation -- unified path for LOCKED and HOLDOVER.
+    # arm_side must be configured (non-zero); if not set, lock on but do not stimulate.
     if (detector.next_stim_t is not None
             and sample_t >= detector.next_stim_t
             and sample_t - last_stim_t >= MIN_STIM_INTERVAL_S
-            and detector.state in (LOCKED, HOLDOVER)):
+            and detector.state in (LOCKED, HOLDOVER)
+            and arm_side != 0):
 
         run_biphasic_burst(
             detector.stim_hz,
