@@ -663,6 +663,10 @@ from ble_telemetry import BLETremorTelemetry
 telemetry = BLETremorTelemetry(name="TREMOR", notify_hz=BLE_NOTIFY_HZ)
 telemetry.debug_print_identity()
 
+_device_settings = telemetry.get_settings()
+arm_side      = _device_settings["arm_side"]       # 0=not set, 1=left, 2=right
+phase_override = _device_settings["phase_override"] # 0=auto, 1=positive, 2=negative
+
 
 # -- MAIN LOOP ------------------------------------------------------------------
 
@@ -745,6 +749,13 @@ while True:
         detector._advance_schedule(time.monotonic())
 
     update_idle_led()
+
+    _changed = telemetry.check_settings_write()
+    if _changed is not None:
+        if "arm_side" in _changed:
+            arm_side = _changed["arm_side"]
+        if "phase_override" in _changed:
+            phase_override = _changed["phase_override"]
 
     _ble_tremor_hz = detector.tremor_hz if detector.state != UNLOCKED else 0.0
     telemetry.update(

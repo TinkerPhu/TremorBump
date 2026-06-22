@@ -592,6 +592,36 @@
           <button id="btn-config-back" class="secondary">Back</button>
         </div>
         <div id="config-saved-msg" class="muted hidden">Settings saved. They apply to new recordings.</div>
+
+        <h2>Device settings</h2>
+        <p id="device-settings-offline" class="muted">Connect to the device to view and change device settings.</p>
+        <div id="device-settings-fields" class="hidden">
+          <div class="form-row">
+            <label for="cfg-arm-side">Arm side</label>
+            <select id="cfg-arm-side">
+              <option value="0">Not set</option>
+              <option value="1">Left arm</option>
+              <option value="2">Right arm</option>
+            </select>
+            <div class="hint">Which arm the device is worn on. Must be set before stimulation is active.</div>
+          </div>
+          <details>
+            <summary class="muted" style="cursor:pointer;margin:16px 0 8px;">Advanced / Research</summary>
+            <div class="form-row">
+              <label for="cfg-phase-override">Stimulation phase override</label>
+              <select id="cfg-phase-override">
+                <option value="0">Auto (recommended)</option>
+                <option value="1">Force positive crossing</option>
+                <option value="2">Force negative crossing</option>
+              </select>
+              <div class="hint">Research use only. Auto selects the correct phase from sensor data and arm side.</div>
+            </div>
+          </details>
+          <div class="button-row">
+            <button id="btn-save-device-settings">Save to device</button>
+          </div>
+          <div id="device-settings-status" class="muted hidden"></div>
+        </div>
       </div>
     </section>
 
@@ -748,10 +778,11 @@
       navigator.serviceWorker.register("./sw.js");
     }
 
-    const APP_VERSION = "v0.1-alpha.10";
+    const APP_VERSION = "v0.1-alpha.11";
 
-    const SERVICE_UUID = "7f6d0001-6f7a-4f4e-9a8b-3b7f4b000001";
+    const SERVICE_UUID  = "7f6d0001-6f7a-4f4e-9a8b-3b7f4b000001";
     const TELEMETRY_UUID = "7f6d0002-6f7a-4f4e-9a8b-3b7f4b000001";
+    const SETTINGS_UUID  = "7f6d0003-6f7a-4f4e-9a8b-3b7f4b000001";
 
     const STATE_NAMES = {
       0: "UNLOCKED",
@@ -777,6 +808,8 @@
     let bluetoothDevice = null;
     let gattServer = null;
     let telemetryCharacteristic = null;
+    let settingsCharacteristic = null;
+    let deviceSettings = null;
     let notificationsActive = false;
     let currentSession = null;
     let isRecording = false;
@@ -870,6 +903,13 @@
       el.btnConfigBack = document.getElementById("btn-config-back");
       el.configSavedMsg = document.getElementById("config-saved-msg");
 
+      el.deviceSettingsOffline = document.getElementById("device-settings-offline");
+      el.deviceSettingsFields = document.getElementById("device-settings-fields");
+      el.cfgArmSide = document.getElementById("cfg-arm-side");
+      el.cfgPhaseOverride = document.getElementById("cfg-phase-override");
+      el.btnSaveDeviceSettings = document.getElementById("btn-save-device-settings");
+      el.deviceSettingsStatus = document.getElementById("device-settings-status");
+
       el.exportEmpty = document.getElementById("export-empty");
       el.exportList = document.getElementById("export-list");
       el.btnExportSummary = document.getElementById("btn-export-summary");
@@ -920,6 +960,7 @@
 
       el.btnConfigSave.addEventListener("click", saveConfigFromForm);
       el.btnConfigBack.addEventListener("click", () => showScreen("start"));
+      el.btnSaveDeviceSettings.addEventListener("click", saveDeviceSettingsFromForm);
 
       el.btnExportSummary.addEventListener("click", exportSummaryJson);
       el.btnExportRaw.addEventListener("click", exportRawCsv);
@@ -1138,6 +1179,8 @@
       gattServer = await bluetoothDevice.gatt.connect();
       const service = await gattServer.getPrimaryService(SERVICE_UUID);
       telemetryCharacteristic = await service.getCharacteristic(TELEMETRY_UUID);
+      settingsCharacteristic = await service.getCharacteristic(SETTINGS_UUID);
+      deviceSettings = await readDeviceSettings();
 
       if (!notificationsActive) {
         await telemetryCharacteristic.startNotifications();
@@ -1156,6 +1199,8 @@
       updateStartStatus("Disconnected", false);
       gattServer = null;
       telemetryCharacteristic = null;
+      settingsCharacteristic = null;
+      deviceSettings = null;
       notificationsActive = false;
 
       if (!isRecording) {
@@ -1228,6 +1273,7 @@
         deviceName: "",
         disconnectReason: null,
         config: { ...appConfig },
+        deviceSettings: deviceSettings ? { ...deviceSettings } : null,
         sampleCount: 0
       };
     }
@@ -1364,6 +1410,8 @@
         }
       } finally {
         telemetryCharacteristic = null;
+        settingsCharacteristic = null;
+        deviceSettings = null;
         gattServer = null;
         bluetoothDevice = null;
         notificationsActive = false;
@@ -1698,6 +1746,65 @@
       el.configSavedMsg.classList.add("hidden");
       el.cfgInterval.value = String(appConfig.aggregateIntervalSeconds);
       el.cfgWindow.value = String(appConfig.activeStimWindowSeconds);
+      const connected = !!deviceSettings;
+      el.deviceSettingsOffline.classList.toggle("hidden", connected);
+      el.deviceSettingsFields.classList.toggle("hidden", !connected);
+      if (connected) {
+        el.cfgArmSide.value = String(deviceSettings.armSide);
+        el.cfgPhaseOverride.value = String(deviceSettings.firePolarityOverride);
+        el.deviceSettingsStatus.classList.add("hidden");
+      }
+    }
+
+    function readDeviceSettings() {
+      return settingsCharacteristic.readValue().then(function(value) {
+        return {
+          structVersion:        value.getUint8(0),
+          armSide:              value.getUint8(1),
+          firePolarityOverride: value.getUint8(2),
+          rawBytes: Array.from(new Uint8Array(value.buffer))
+        };
+      });
+    }
+
+    async function writeDeviceSettings(partial) {
+      if (!settingsCharacteristic || !deviceSettings) {
+        return { ok: false, error: "Not connected" };
+      }
+      const merged = Object.assign({}, deviceSettings, partial);
+      const buf = new Uint8Array(8).fill(0xFF);
+      buf[0] = (merged.structVersion !== undefined) ? merged.structVersion : 1;
+      buf[1] = (merged.armSide !== undefined) ? merged.armSide : 0;
+      buf[2] = (merged.firePolarityOverride !== undefined) ? merged.firePolarityOverride : 0;
+      await settingsCharacteristic.writeValueWithResponse(buf.buffer);
+      await new Promise(function(r) { setTimeout(r, 300); });
+      const readback = await readDeviceSettings();
+      const ok = readback.armSide === merged.armSide &&
+                 readback.firePolarityOverride === merged.firePolarityOverride;
+      if (ok) { deviceSettings = readback; }
+      return { ok: ok, readback: readback };
+    }
+
+    async function saveDeviceSettingsFromForm() {
+      el.btnSaveDeviceSettings.disabled = true;
+      el.deviceSettingsStatus.classList.add("hidden");
+      try {
+        const result = await writeDeviceSettings({
+          armSide:              parseInt(el.cfgArmSide.value, 10),
+          firePolarityOverride: parseInt(el.cfgPhaseOverride.value, 10)
+        });
+        el.deviceSettingsStatus.textContent = result.ok
+          ? "Saved to device."
+          : "Error: device did not confirm. Try again.";
+        if (result.ok) {
+          el.cfgArmSide.value = String(deviceSettings.armSide);
+          el.cfgPhaseOverride.value = String(deviceSettings.firePolarityOverride);
+        }
+      } catch (err) {
+        el.deviceSettingsStatus.textContent = "Error: " + readableError(err);
+      }
+      el.btnSaveDeviceSettings.disabled = false;
+      el.deviceSettingsStatus.classList.remove("hidden");
     }
 
     function saveConfigFromForm() {

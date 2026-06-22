@@ -31,6 +31,8 @@ Packet format, little-endian, exactly 13 bytes:
 
 import struct
 
+import microcontroller
+
 from adafruit_ble import BLERadio
 from adafruit_ble.advertising import Advertisement
 from adafruit_ble.advertising.standard import ProvideServicesAdvertisement
@@ -40,8 +42,19 @@ from adafruit_ble.services import Service
 from adafruit_ble.uuid import VendorUUID
 
 
-TREMOR_SERVICE_UUID = VendorUUID("7f6d0001-6f7a-4f4e-9a8b-3b7f4b000001")
-TELEMETRY_CHAR_UUID = VendorUUID("7f6d0002-6f7a-4f4e-9a8b-3b7f4b000001")
+TREMOR_SERVICE_UUID  = VendorUUID("7f6d0001-6f7a-4f4e-9a8b-3b7f4b000001")
+TELEMETRY_CHAR_UUID  = VendorUUID("7f6d0002-6f7a-4f4e-9a8b-3b7f4b000001")
+SETTINGS_CHAR_UUID   = VendorUUID("7f6d0003-6f7a-4f4e-9a8b-3b7f4b000001")
+
+# Settings struct — 8 bytes, little-endian, stored in microcontroller.nvm[0:8]
+_SETTINGS_LEN      = 8
+_SETTINGS_VERSION  = 1
+_IDX_VERSION       = 0   # uint8: struct version, must == _SETTINGS_VERSION
+_IDX_ARM_SIDE      = 1   # uint8: 0=not set, 1=left, 2=right
+_IDX_PHASE_OVR     = 2   # uint8: 0=auto, 1=positive crossing, 2=negative crossing
+# bytes 3-7: reserved (0xFF)
+_SETTINGS_DEFAULTS = bytes([_SETTINGS_VERSION, 0, 0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF])
+_NVM_START         = 0   # settings occupy nvm[0:8]
 
 STATE_UNKNOWN = 255
 STATE_CODES = {
@@ -67,6 +80,16 @@ class TremorTelemetryService(Service):
         max_length=_PACKET_LEN,
         fixed_length=True,
         initial_value=_ZERO_PACKET,
+    )
+
+    settings = Characteristic(
+        uuid=SETTINGS_CHAR_UUID,
+        properties=Characteristic.READ | Characteristic.WRITE,
+        read_perm=Attribute.OPEN,
+        write_perm=Attribute.OPEN,
+        max_length=_SETTINGS_LEN,
+        fixed_length=True,
+        initial_value=bytes(_SETTINGS_LEN),
     )
 
 
@@ -98,6 +121,11 @@ class BLETremorTelemetry:
         self._advertising = False
         self._last_connected = False
 
+        nvm_raw = bytes(microcontroller.nvm[_NVM_START : _NVM_START + _SETTINGS_LEN])
+        self._settings = self._coerce_settings(nvm_raw)
+        self._last_settings = bytes(self._settings)
+        self.service.settings = self._settings
+
     def address_string(self):
         try:
             address = self.ble.address_bytes
@@ -114,6 +142,9 @@ class BLETremorTelemetry:
         print("BLE address", self.address_string())
         print("BLE service", "7f6d0001-6f7a-4f4e-9a8b-3b7f4b000001")
         print("BLE telemetry", "7f6d0002-6f7a-4f4e-9a8b-3b7f4b000001")
+        print("BLE settings", "7f6d0003-6f7a-4f4e-9a8b-3b7f4b000001")
+        print("BLE settings arm_side=%d phase_ovr=%d" % (
+            self._settings[_IDX_ARM_SIDE], self._settings[_IDX_PHASE_OVR]))
 
     def start_advertising(self):
         if self.ble.connected:
@@ -199,6 +230,40 @@ class BLETremorTelemetry:
             if self.debug:
                 print("BLE notify failed", repr(exc))
             return False
+
+    def _coerce_settings(self, raw):
+        if len(raw) < _SETTINGS_LEN or raw[_IDX_VERSION] == 0xFF:
+            return bytearray(_SETTINGS_DEFAULTS)
+        s = bytearray(raw[:_SETTINGS_LEN])
+        s[_IDX_VERSION] = _SETTINGS_VERSION
+        s[_IDX_ARM_SIDE]  = min(s[_IDX_ARM_SIDE],  2)
+        s[_IDX_PHASE_OVR] = min(s[_IDX_PHASE_OVR], 2)
+        return s
+
+    def get_settings(self):
+        return {
+            "arm_side":       self._settings[_IDX_ARM_SIDE],
+            "phase_override": self._settings[_IDX_PHASE_OVR],
+        }
+
+    def check_settings_write(self):
+        current = bytes(self.service.settings)
+        if current == self._last_settings:
+            return None
+        coerced = self._coerce_settings(current)
+        if coerced[_IDX_VERSION] != _SETTINGS_VERSION:
+            self.service.settings = self._settings
+            return None
+        microcontroller.nvm[_NVM_START : _NVM_START + _SETTINGS_LEN] = coerced
+        self._settings = coerced
+        self._last_settings = bytes(coerced)
+        if self.debug:
+            print("BLE settings written arm_side=%d phase_ovr=%d" % (
+                coerced[_IDX_ARM_SIDE], coerced[_IDX_PHASE_OVR]))
+        return {
+            "arm_side":       coerced[_IDX_ARM_SIDE],
+            "phase_override": coerced[_IDX_PHASE_OVR],
+        }
 
     def _clamp_u8(self, value):
         if value < 0:
