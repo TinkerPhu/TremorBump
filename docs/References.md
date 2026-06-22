@@ -4,8 +4,8 @@
 
 ## Main inspiration
 
+- [OpenVstim](https://github.com/MonzurulAlam/OpenVstim) Kudos to Monzurul Alam, your project was extremely helpful!
 - [DIY Transcutaneous Spinal Stimulator Guide](https://www.scribd.com/document/766706842/An-easy-to-build-transcutaneous-electrical-stimulator-for-spinal-cord-stimulation-therapy)
-- [OpenVstim](https://github.com/MonzurulAlam/OpenVstim)
 
 ## Medical Sources
 
