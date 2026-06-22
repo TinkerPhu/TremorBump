@@ -105,6 +105,104 @@ See `docs/SES_Clinical_Reference.md` for the neurophysiology of phase-locked sti
 
 ---
 
+---
+
+### BLE Settings Characteristic — Architecture
+
+This item is a prerequisite for Spec A. It defines the BLE layer that allows the companion app to read and write device settings (initially arm side; extensible to future parameters).
+
+#### Context
+
+The existing BLE service has one characteristic:
+- `7f6d0002` — telemetry, **read + notify**, device → app only, 13 bytes (growing to 14/15 bytes per Spec A/B).
+
+A settings characteristic must be added to the same service:
+- `7f6d0003` — settings, **read + write**, bidirectional, fixed-length struct.
+
+Using the same service UUID keeps discovery simple. The app already connects to the service by UUID; it will simply discover the additional characteristic automatically.
+
+#### Settings Struct — v1 Layout
+
+Design the struct now with future growth in mind. All fields little-endian.
+
+| Byte | Field | Type | Values | Notes |
+|------|-------|------|--------|-------|
+| 0 | `struct_version` | uint8 | 1 | Increment if layout changes; app checks this |
+| 1 | `arm_side` | uint8 | 0 = not set, 1 = left, 2 = right | Primary new field |
+| 2 | `calibration_wait_s` | uint8 | 1–10, default 4 | Gravity detect window duration |
+| 3 | `lateral_threshold_x10` | uint8 | default 20 (= 2.0 m/s²) | Gravity confidence threshold × 10 |
+| 4–7 | *(reserved)* | uint8 × 4 | 0xFF | Reserved for future settings; write 0xFF to preserve |
+
+Total: 8 bytes. Small enough to fit in a single BLE write without MTU concerns.
+
+The `struct_version` field is critical: if firmware adds a new field in a future version, the app can detect the version mismatch and handle it gracefully (e.g., disable UI for unknown fields rather than writing garbage).
+
+#### App ↔ Device Protocol
+
+**On every BLE connection:**
+```
+App connects
+  → App reads settings characteristic (8 bytes)
+  → App parses struct_version; if unknown version: show warning, disable write
+  → App updates Settings UI to reflect device values
+  → App stores device values in session state (not localStorage — only in-memory)
+```
+
+**On user-initiated setting change in app:**
+```
+User changes a setting in Settings screen
+  → App validates new value
+  → App constructs full 8-byte settings struct (merging change into last-read values)
+  → App writes struct to settings characteristic
+  → App waits 300 ms (BLE propagation + NVM write time)
+  → App reads settings characteristic back
+  → App compares read-back to written values
+  → If match: show "Saved" confirmation; update UI
+  → If mismatch: show error "Device did not confirm — try again"; revert UI to read-back values
+```
+
+**On NVM write in firmware (triggered by BLE settings write):**
+```
+Firmware receives write to settings characteristic
+  → Validate struct_version matches firmware's expected version
+  → Validate each field value is within allowed range
+  → Write validated fields to microcontroller.nvm[0:8]
+  → Update in-RAM settings immediately (no restart needed for most fields)
+  → For arm_side change: flash cyan/yellow LED 1 s to confirm
+  → BLE read of the characteristic will now return NVM values (no explicit ACK needed — the read-back serves as ACK)
+```
+
+#### Firmware Requirements
+
+| ID | Requirement |
+|----|-------------|
+| FW-S1 | Add settings characteristic `7f6d0003` to existing GATT service with read + write permissions. |
+| FW-S2 | On read: return current NVM bytes 0–7, formatted as the settings struct. If NVM bytes are uninitialised (0xFF), substitute defaults before returning. |
+| FW-S3 | On write: validate `struct_version` == firmware's expected version; reject with no NVM write if mismatch. Validate each field range; clamp or reject out-of-range values. Write valid fields to NVM. |
+| FW-S4 | `arm_side` change via BLE write takes effect immediately in the running session (updates `arm_side` RAM variable). Other fields take effect on next relevant event (e.g., `calibration_wait_s` only matters at next boot). |
+| FW-S5 | NVM layout must reserve bytes 0–7 for the settings struct. Any future use of additional NVM bytes starts at index 8. |
+| FW-S6 | On firmware update that changes the struct layout: increment `struct_version` in firmware and document the migration. The app must handle the case where device version > app's known version (read-only mode for unknown fields). |
+
+#### App Requirements
+
+| ID | Requirement |
+|----|-------------|
+| APP-S1 | On BLE connection, read settings characteristic before rendering the Settings screen. Settings screen shows a loading state until the read completes. |
+| APP-S2 | Cache the last-read settings struct in session memory. All writes are constructed by merging the user's change into this cached struct — never construct a write from UI state alone, to avoid clobbering fields the app doesn't know about. |
+| APP-S3 | After every write, perform a read-back within 500 ms and compare. Surface any mismatch to the user. |
+| APP-S4 | If `struct_version` from device is higher than the app's known version: display a "Device firmware is newer than this app — some settings may not be shown" notice. Disable writes to unknown fields (preserve 0xFF reserved bytes in writes). |
+| APP-S5 | If `struct_version` from device is lower than the app's known version: display a "Device firmware is outdated" notice. Write only fields known to exist in the older version. |
+| APP-S6 | Settings are never persisted in the app's localStorage. The device NVM is the single source of truth. The app always reads from the device on connect. |
+| APP-S7 | If BLE is disconnected while a write is in progress: show an error and re-read on reconnection before allowing further writes. |
+
+#### Open Questions
+
+- [ ] Should `7f6d0003` be write-with-response (ATT Write Request, gets an ATT response) or write-without-response? Write-with-response is safer as the ATT layer confirms the packet was received; the app-level read-back then confirms the NVM write. Recommendation: write-with-response.
+- [ ] 300 ms wait before read-back: is this enough for CircuitPython's `microcontroller.nvm` write to complete? Needs empirical testing; NVM writes on ESP32 are typically < 10 ms but CircuitPython overhead may vary.
+- [ ] Should the settings write be protected (e.g., require a pairing PIN or a challenge byte) to prevent accidental writes from other BLE clients? Low priority for now given the niche use case, but worth noting.
+
+---
+
 ## Specification Planning
 
 The items above ("Fix stimulation phase" + "Auto-detect arm side") form a single coherent feature that is best delivered in **two sequential specs**:
